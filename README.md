@@ -34,3 +34,4 @@ $ pip install -r requirements.txt
 ```bash 
 $ cp .env.example .env
 ```
+#### - Put `SECRET_KEY` value in .env
