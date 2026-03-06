@@ -1,9 +1,9 @@
 from ..database import database
-from ..schemas.user_schema import UserSchema, UserResponseSchema
+from ..schemes.user_schema import UserSchema, UserResponseSchema
 from ..services import create_access_token, verify_access_token
 from passlib.hash import bcrypt
 
-async def sign_up(user: UserSchema):
+async def sign_up_controller(user: UserSchema):
 
     # check if user already exists
     existing_user = await database["users"].find_one({
@@ -31,7 +31,7 @@ async def sign_up(user: UserSchema):
     }
 
 
-async def sign_in(email: str, password: str):
+async def sign_in_controller(email: str, password: str):
 
     # check if user exists
     user = await database["users"].find_one({
@@ -56,7 +56,7 @@ async def sign_in(email: str, password: str):
     }
 
 
-async def google_login(google_id : str, email : str, name : str) : 
+async def google_login_controller(google_id : str, email : str, name : str) : 
     
     # check if user already exists
     existing_user = await database["users"].find_one({
@@ -72,12 +72,12 @@ async def google_login(google_id : str, email : str, name : str) :
             "google_id" : google_id
         }
         result = await database["users"].insert_one(user_dict)
-        user_dict["_id"] = str(result.inserted_id)
+        user_dict["_id"] = result.inserted_id
         existing_user = user_dict
     else:
-        existing_user["_id"] = str(existing_user["_id"])
+        existing_user["_id"] = existing_user["_id"]
     access_token = create_access_token({
-        "user_id" : existing_user["_id"],
+        "user_id" : str(existing_user["_id"]),
         "email" : existing_user["email"]
         })
 
