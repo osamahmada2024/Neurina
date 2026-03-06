@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from .config import settings
+from .database import database
 
 app = FastAPI(
     title = settings.APP_NAME,
@@ -15,4 +16,3 @@ async def root():
         "App Version": settings.APP_VERSION,
         "message" : "Welcome to the FastAPI application!"
     }
-    
