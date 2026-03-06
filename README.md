@@ -34,4 +34,10 @@ $ pip install -r requirements.txt
 ```bash 
 $ cp .env.example .env
 ```
-#### - Put `SECRET_KEY` value in .env
+Set your environment variables in the `.env` file. Like `SECRET_KEY` value.
+
+## Run  the FastAPI server 
+
+```bash
+$ uvicorn src.main:app --reload --host 0.0.0.0 --port 5000
+```
