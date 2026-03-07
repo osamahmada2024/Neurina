@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from .config import settings
-from .database import database
+from .models import database, init_db
 from .routes import router
 
 app = FastAPI(
@@ -19,3 +19,7 @@ async def root():
     }
 
 app.include_router(router, prefix="/api")
+
+@app.on_event("startup")
+async def startup_event():
+    await init_db()

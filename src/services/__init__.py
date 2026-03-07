@@ -1,1 +1,1 @@
-from .auth_service import create_access_token, verify_access_token
+from .auth_service import create_access_token, verify_access_token, verify_strong_password

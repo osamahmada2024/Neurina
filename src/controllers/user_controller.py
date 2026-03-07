@@ -1,7 +1,11 @@
-from ..database import database
+from ..models import database
 from ..schemes.user_schema import UserSchema, UserResponseSchema
 from ..services import create_access_token, verify_access_token
 from passlib.hash import bcrypt
+from ..services import verify_strong_password
+from ..models.Enums import Password_Exceeded
+
+
 
 async def sign_up_controller(user: UserSchema):
 
@@ -12,16 +16,20 @@ async def sign_up_controller(user: UserSchema):
     if existing_user: 
         raise Exception("User already exists")
 
+    # verify password strength
+    
+    if verify_strong_password(user.password) != Password_Exceeded.VALID:
+        raise Exception(verify_strong_password(user.password).value)
+
     # create new user and hash password
     user_dict = user.dict(exclude_unset = True) 
     hashed_password = bcrypt.hash(user.password)
     user_dict["password"] = hashed_password
     result = await database["users"].insert_one(user_dict)
-    user_dict["_id"] = str(result.inserted_id)
     
     # create access token
     access_token = create_access_token({
-        "user_id" : user_dict["_id"],
+        "user_id" : str(result.inserted_id),
         "email" : user.email
         })
 
