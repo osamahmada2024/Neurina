@@ -3,8 +3,7 @@ from ..schemes.user_schema import (
     UserSchema,
     UserResponseSchema,
     LoginSchema,
-    LoginGoogleSchema,
-    LoginGithubSchema
+    ProviderLoginRequestSchema
 )
 from ..services import (
     create_access_token,
@@ -14,7 +13,7 @@ from ..services import (
     verify_github_token
 )
 from passlib.hash import bcrypt
-from ..models.Enums import Password_Exceeded
+from ..models.Enums import Password_Exceeded, Providers
 from typing import Union
 from google.oauth2 import id_token
 from google.auth.transport import requests
@@ -79,12 +78,12 @@ async def sign_in_controller(user : LoginSchema):
     }
 
 
-async def Provider_login_controller(token, provider : str) : 
+async def Provider_login_controller(user : ProviderLoginRequestSchema) : 
 
-    if provider == "google":
-        user = verify_google_token(token)
-    elif provider == "github":
-        user = verify_github_token(token)
+    if user.provider == Providers.GOOGLE.value:
+        user = verify_google_token(user.token)
+    elif user.provider == Providers.GITHUB.value:
+        user = verify_github_token(user.token)
     else :
         raise Exception("Unsupported provider")
     

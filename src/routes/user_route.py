@@ -1,9 +1,10 @@
 from fastapi import APIRouter, HTTPException, Depends
 from ..controllers import sign_up_controller, sign_in_controller, Provider_login_controller
-from ..schemes import UserSchema, UserResponseSchema, LoginSchema, LoginGoogleSchema, LoginGithubSchema
+from ..schemes import UserSchema, UserResponseSchema, LoginSchema, ProviderLoginRequestSchema
 from ..services import verify_access_token
 from fastapi.security import OAuth2PasswordBearer
 from typing import Union
+from ..models import Providers
 
 router = APIRouter(
     prefix = "/users",
@@ -29,13 +30,13 @@ async def sign_in_user(login_data : LoginSchema):
         raise HTTPException(status_code = 400, detail = str(e))
 
 @router.post("/provider-login")
-async def provider_login_user(login_data : Union[LoginGoogleSchema, LoginGithubSchema]):
+async def provider_login_user(login_data : ProviderLoginRequestSchema):
 
     try :
-        if isinstance(login_data, LoginGoogleSchema):
-            return await Provider_login_controller(login_data, "google")
-        elif isinstance(login_data, LoginGithubSchema):
-            return await Provider_login_controller(login_data, "github")
+        if login_data.provider == Providers.GOOGLE.value:
+            return await Provider_login_controller(login_data)
+        elif login_data.provider == Providers.GITHUB.value:
+            return await Provider_login_controller(login_data)
 
         raise HTTPException(status_code = 400, detail = "Invalid provider")
 

@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from jose import JWTError, jwt
 from ..config import settings
-from ..models import Password_Exceeded
+from ..models import Password_Exceeded, Providers
 from ..schemes import LoginProviderSchema
 import requests
 
@@ -50,15 +50,16 @@ def verify_google_token(token: str) -> dict:
             settings.GOOGLE_ANDROID_CLIENT_ID, # android client id
             settings.GOOGLE_IOS_CLIENT_ID # ios client id
         ])
+        print("Google info:", google_info)
         user_data = {
             "email" : google_info["email"],
             "name" : google_info.get("name", ""),
             "provider_id" : google_info["sub"],
-            "provider" : "google"
+            "provider" : Providers.GOOGLE.value
         }
         return LoginProviderSchema(**user_data)
     except Exception as e:
-        raise Exception("Invalid Google token")
+        raise Exception("Invalid Google token: " + str(e))
 
 
 def verify_github_token(token: str) -> dict:
@@ -74,7 +75,7 @@ def verify_github_token(token: str) -> dict:
             "name": github_info.get("name", github_info.get("login", "")),
             "email": github_info.get("email", ""), 
             "provider_id": github_info["id"],
-            "provider": "github"
+            "provider": Providers.GITHUB.value
         }
         return LoginProviderSchema(**user_dict)
     

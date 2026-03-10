@@ -30,6 +30,12 @@ class LoginProviderSchema(BaseModel):
     provider_id : str
     provider : str
 
+
+class ProviderLoginRequestSchema(BaseModel):
+    token: str
+    provider: str
+
+
 class UserResponseSchema(BaseModel):
     id : Optional[ObjectId] = Field(alias="_id")
     email : EmailStr
