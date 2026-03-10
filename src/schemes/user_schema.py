@@ -19,7 +19,16 @@ class UserSchema(BaseModel):
         }
 
 
+class LoginSchema(BaseModel):
+    email: EmailStr
+    password: str = Field(..., min_length = 6)
 
+
+class LoginProviderSchema(BaseModel):
+    email: EmailStr
+    name : str
+    provider_id : str
+    provider : str
 
 class UserResponseSchema(BaseModel):
     id : Optional[ObjectId] = Field(alias="_id")
@@ -33,3 +42,4 @@ class UserResponseSchema(BaseModel):
        json_encoders = {
             ObjectId : lambda x : str(x)
        }
+       

@@ -1,9 +1,24 @@
 from ..models import database
-from ..schemes.user_schema import UserSchema, UserResponseSchema
-from ..services import create_access_token, verify_access_token
+from ..schemes.user_schema import (
+    UserSchema,
+    UserResponseSchema,
+    LoginSchema,
+    LoginGoogleSchema,
+    LoginGithubSchema
+)
+from ..services import (
+    create_access_token,
+    verify_access_token,
+    verify_strong_password,
+    verify_google_token,
+    verify_github_token
+)
 from passlib.hash import bcrypt
-from ..services import verify_strong_password
 from ..models.Enums import Password_Exceeded
+from typing import Union
+from google.oauth2 import id_token
+from google.auth.transport import requests
+from ..config import settings
 
 
 
@@ -39,51 +54,59 @@ async def sign_up_controller(user: UserSchema):
     }
 
 
-async def sign_in_controller(email: str, password: str):
+async def sign_in_controller(user : LoginSchema):
 
     # check if user exists
-    user = await database["users"].find_one({
-        "email" : email
+    existing_user = await database["users"].find_one({
+        "email" : user.email
     })
-    if not user:
+    if not existing_user:
         raise Exception("Invalid email or password")
 
     # verify password
-    if not bcrypt.verify(password, user["password"]):
+    if not bcrypt.verify(user.password, existing_user["password"]):
         raise Exception("Invalid email or password")
 
     # create access token
     access_token = create_access_token({
-        "user_id" : str(user["_id"]),
-        "email" : user["email"]
+        "user_id" : str(existing_user["_id"]),
+        "email" : existing_user["email"]
         })
 
     return {
         "access_token" : access_token,
-        "user" : UserResponseSchema(**user)
+        "user" : UserResponseSchema(**existing_user)
     }
 
 
-async def google_login_controller(google_id : str, email : str, name : str) : 
+async def Provider_login_controller(token, provider : str) : 
+
+    if provider == "google":
+        user = verify_google_token(token)
+    elif provider == "github":
+        user = verify_github_token(token)
+    else :
+        raise Exception("Unsupported provider")
     
     # check if user already exists
     existing_user = await database["users"].find_one({
-        "email" : email 
+        "email" : user.email 
         })
 
     if not existing_user:
         # create new user
+       
         user_dict = {
-            "name" : name,
-            "email" : email,
-            "provider" : "google",
-            "google_id" : google_id
+            "name" : user.name,
+            "email" : user.email,
+            "provider" : user.provider,
+            "provider_id" : user.provider_id
         }
+        
         result = await database["users"].insert_one(user_dict)
         user_dict["_id"] = result.inserted_id
         existing_user = user_dict
-    else:
-        existing_user["_id"] = existing_user["_id"]
+
     access_token = create_access_token({
         "user_id" : str(existing_user["_id"]),
         "email" : existing_user["email"]

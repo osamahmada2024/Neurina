@@ -7,6 +7,4 @@ database = client[settings.DB_NAME]
 async def init_db():
     # create indexes
     await database["users"].create_index("email", unique=True)
-    await database["users"].create_index("google_id", unique=True, sparse=True)
-    await database["users"].create_index("name", unique=True)
-    
+    await database["users"].create_index("provider_id", unique=True, sparse=True)

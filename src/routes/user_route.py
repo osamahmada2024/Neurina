@@ -1,8 +1,9 @@
 from fastapi import APIRouter, HTTPException, Depends
-from ..controllers import sign_up_controller, sign_in_controller, google_login_controller
-from ..schemes import UserSchema, UserResponseSchema
+from ..controllers import sign_up_controller, sign_in_controller, Provider_login_controller
+from ..schemes import UserSchema, UserResponseSchema, LoginSchema, LoginGoogleSchema, LoginGithubSchema
 from ..services import verify_access_token
 from fastapi.security import OAuth2PasswordBearer
+from typing import Union
 
 router = APIRouter(
     prefix = "/users",
@@ -20,20 +21,27 @@ async def sign_up_user(user : UserSchema):
         raise HTTPException(status_code = 400, detail = str(e))
 
 @router.post("/login")
-async def sign_in_user(email : str, password : str):
+async def sign_in_user(login_data : LoginSchema):
 
     try :
-        return await sign_in_controller(email, password)
+        return await sign_in_controller(login_data.email, login_data.password)
     except Exception as e:
         raise HTTPException(status_code = 400, detail = str(e))
 
-@router.post("/google-login")
-async def google_login_user(google_id : str, email : str, name : str) :
+@router.post("/provider-login")
+async def provider_login_user(login_data : Union[LoginGoogleSchema, LoginGithubSchema]):
 
     try :
-        return await google_login_controller(google_id, email, name)
+        if isinstance(login_data, LoginGoogleSchema):
+            return await Provider_login_controller(login_data, "google")
+        elif isinstance(login_data, LoginGithubSchema):
+            return await Provider_login_controller(login_data, "github")
+
+        raise HTTPException(status_code = 400, detail = "Invalid provider")
+
     except Exception as e:
         raise HTTPException(status_code = 400, detail = str(e))
+
     
 @router.get("/profile")
 async def get_profile_user(token : str = Depends(oauth2_scheme)):

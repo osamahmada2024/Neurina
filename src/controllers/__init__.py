@@ -1,1 +1,1 @@
-from .user_controller import sign_up_controller, sign_in_controller, google_login_controller
+from .user_controller import sign_up_controller, sign_in_controller, Provider_login_controller
