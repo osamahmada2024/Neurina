@@ -1,12 +1,14 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
 from ..controllers import sign_up_controller, sign_in_controller, Github_login_controller, Google_login_controller
-from ..schemes import UserSchema, UserResponseSchema, LoginSchema, ProviderLoginRequestSchema
+from ..schemes import UserSchema, UserResponseSchema, LoginSchema, ProviderLoginRequestSchema, UserProfileSchema
 from ..services import verify_access_token
 from fastapi.security import OAuth2PasswordBearer
 from typing import Union
 from ..models import Providers
 from ..config import settings
 import requests
+from ..models import database
+from bson import ObjectId
 
 router = APIRouter(
     prefix = "/users",
@@ -27,7 +29,7 @@ async def sign_up_user(user : UserSchema):
 async def sign_in_user(login_data : LoginSchema):
 
     try :
-        return await sign_in_controller(login_data.email, login_data.password)
+        return await sign_in_controller(login_data)
     except Exception as e:
         raise HTTPException(status_code = 400, detail = str(e))
 
@@ -50,14 +52,22 @@ async def Github_login_user(request: Request):
         raise HTTPException(status_code = 400, detail = str(e))
 
 
-
 @router.get("/profile")
-async def get_profile_user(token : str = Depends(oauth2_scheme)):
+async def get_profile_user(token: str = Depends(oauth2_scheme)):
 
-    try : 
+    try:
         payload = verify_access_token(token)
+
         if not payload:
-            raise HTTPException(status_code = 401, detail = "Invalid token")
-        return {"message": f"Hello {payload['email']}!", "user_id": payload["user_id"]}
+            raise HTTPException(status_code=401, detail="Invalid token")
+
+
+        user = await database["users"].find_one({"_id": ObjectId(payload["user_id"])})
+
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        return UserProfileSchema(**user)
+
     except Exception as e:
-        raise HTTPException(status_code = 401, detail = str(e))
+        raise HTTPException(status_code=401, detail=str(e))

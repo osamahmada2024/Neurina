@@ -37,7 +37,7 @@ async def sign_up_controller(user: UserSchema):
         raise Exception(verify_strong_password(user.password).value)
 
     # create new user and hash password
-    user_dict = user.dict(exclude_unset = True) 
+    user_dict = user.dict(exclude={"id"}) 
     hashed_password = bcrypt.hash(user.password)
     user_dict["password"] = hashed_password
     result = await database["users"].insert_one(user_dict)
