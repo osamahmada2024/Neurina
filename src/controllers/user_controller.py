@@ -95,7 +95,8 @@ async def Google_login_controller(user : ProviderLoginRequestSchema) :
             "name" : user.name,
             "email" : user.email,
             "provider" : user.provider,
-            "provider_id" : user.provider_id
+            "provider_id" : user.provider_id,
+            "profile_picture" : user.profile_picture
         }
         
         result = await database["users"].insert_one(user_dict)
@@ -116,11 +117,11 @@ async def Google_login_controller(user : ProviderLoginRequestSchema) :
 
 async def Github_login_controller(request: Request) :
 
-    code = request.query_params.get("code")
+    code =  request.query_params.get("code")
     if not code:
         raise Exception("Code not provided")
 
-    user = verify_github_code(code)
+    user = await verify_github_code(code)
 
     # check if user already exists
     existing_user = await database["users"].find_one({
@@ -132,14 +133,15 @@ async def Github_login_controller(request: Request) :
             "name" : user.name,
             "email" : user.email,
             "provider" : user.provider,
-            "provider_id" : user.provider_id
+            "provider_id" : user.provider_id,
+            "profile_picture" : user.profile_picture
         }
         result = await database["users"].insert_one(user_dict)
         user_dict["_id"] = result.inserted_id
         existing_user = user_dict
 
 
-    access_token = create_access_token({
+    access_token =  create_access_token({
         "user_id" : str(existing_user["_id"]),  
         "email" : existing_user["email"]
         })

@@ -6,6 +6,7 @@ from ..schemes import LoginProviderSchema
 from google.auth.transport.requests import Request
 from google.oauth2 import id_token
 import requests
+from fastapi import HTTPException
 
 
 def create_access_token(data: dict) -> str:
@@ -52,12 +53,12 @@ def verify_google_token(token: str) -> dict:
             settings.GOOGLE_ANDROID_CLIENT_ID, # android client id
             settings.GOOGLE_IOS_CLIENT_ID # ios client id
         ])
-        print("Google info:", google_info)
         user_data = {
             "email" : google_info["email"],
             "name" : google_info.get("name", ""),
             "provider_id" : google_info["sub"],
-            "provider" : Providers.GOOGLE.value
+            "provider" : Providers.GOOGLE.value,
+            "profile_picture" : google_info.get("picture", None)
         }
         return LoginProviderSchema(**user_data)
     except Exception as e:
@@ -77,9 +78,11 @@ async def verify_github_code(code: str) -> LoginProviderSchema:
         "code": code
     }
 
-    token_response = requests.post(token_url, headers=headers, data=data)
+    token_response =  requests.post(token_url, headers=headers, data=data)
     token_json = token_response.json()
+    print("GitHub token response:", token_json)  # Debugging line
     access_token = token_json.get("access_token")
+
     if not access_token:
         raise HTTPException(status_code=400, detail="Failed to get access token")
 
@@ -90,7 +93,7 @@ async def verify_github_code(code: str) -> LoginProviderSchema:
             "Authorization": f"Bearer {access_token}",
             "Accept": "application/json"
         }
-        response = requests.get("https://api.github.com/user", headers=headers, timeout=5)
+        response =   requests.get("https://api.github.com/user", headers=headers, timeout=5)
 
 
         if response.status_code != 200:
@@ -98,9 +101,8 @@ async def verify_github_code(code: str) -> LoginProviderSchema:
         
         github_info = response.json()
         email = github_info.get("email")
-
         if not email:
-            email_response = requests.get("https://api.github.com/user/emails", headers=headers, timeout=5)
+            email_response =  requests.get("https://api.github.com/user/emails", headers=headers, timeout=5)
             if email_response.status_code == 200:
                 emails = email_response.json()
                 primary_email = next((e for e in emails if e.get("primary")), None)
@@ -111,7 +113,8 @@ async def verify_github_code(code: str) -> LoginProviderSchema:
             "name": github_info.get("name", github_info.get("login", "")),
             "email": email,
             "provider_id": str(github_info["id"]),
-            "provider": Providers.GITHUB.value
+            "provider": Providers.GITHUB.value,
+            "profile_picture": github_info.get("avatar_url", None)
         }
 
         return LoginProviderSchema(**user_dict)

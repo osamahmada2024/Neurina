@@ -29,7 +29,7 @@ class LoginProviderSchema(BaseModel):
     name : str
     provider_id : str
     provider : str
-
+    profile_picture : Optional[str] = None
 
 class ProviderLoginRequestSchema(BaseModel):
     id_token: str

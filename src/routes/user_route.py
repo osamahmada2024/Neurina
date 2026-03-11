@@ -41,7 +41,7 @@ async def Google_login_user(login_data : ProviderLoginRequestSchema):
         raise HTTPException(status_code = 400, detail = str(e))
 
 
-@router.post("/github-login")
+@router.get("/github-login")
 async def Github_login_user(request: Request):
 
     try :
