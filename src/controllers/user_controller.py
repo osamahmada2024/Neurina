@@ -10,7 +10,7 @@ from ..services import (
     verify_access_token,
     verify_strong_password,
     verify_google_token,
-    verify_github_token
+    verify_github_code
 )
 from passlib.hash import bcrypt
 from ..models.Enums import Password_Exceeded, Providers
@@ -18,6 +18,7 @@ from typing import Union
 from google.oauth2 import id_token
 from google.auth.transport import requests
 from ..config import settings
+from fastapi import Request
 
 
 
@@ -78,14 +79,9 @@ async def sign_in_controller(user : LoginSchema):
     }
 
 
-async def Provider_login_controller(user : ProviderLoginRequestSchema) : 
+async def Google_login_controller(user : ProviderLoginRequestSchema) : 
 
-    if user.provider == Providers.GOOGLE.value:
-        user = verify_google_token(user.token)
-    elif user.provider == Providers.GITHUB.value:
-        user = verify_github_token(user.token)
-    else :
-        raise Exception("Unsupported provider")
+    user = verify_google_token(user.id_token)
     
     # check if user already exists
     existing_user = await database["users"].find_one({
@@ -115,3 +111,42 @@ async def Provider_login_controller(user : ProviderLoginRequestSchema) :
         "access_token" : access_token,
         "user" : UserResponseSchema(**existing_user)
     }
+
+
+
+async def Github_login_controller(request: Request) :
+
+    code = request.query_params.get("code")
+    if not code:
+        raise Exception("Code not provided")
+
+    user = verify_github_code(code)
+
+    # check if user already exists
+    existing_user = await database["users"].find_one({
+        "email" : user.email 
+        })
+    if not existing_user:
+        # create new user
+        user_dict = {
+            "name" : user.name,
+            "email" : user.email,
+            "provider" : user.provider,
+            "provider_id" : user.provider_id
+        }
+        result = await database["users"].insert_one(user_dict)
+        user_dict["_id"] = result.inserted_id
+        existing_user = user_dict
+
+
+    access_token = create_access_token({
+        "user_id" : str(existing_user["_id"]),  
+        "email" : existing_user["email"]
+        })
+
+    return {
+        "access_token" : access_token,      
+        "user" : UserResponseSchema(**existing_user)
+    }
+    
+    

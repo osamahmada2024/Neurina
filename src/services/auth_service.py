@@ -3,6 +3,8 @@ from jose import JWTError, jwt
 from ..config import settings
 from ..models import Password_Exceeded, Providers
 from ..schemes import LoginProviderSchema
+from google.auth.transport.requests import Request
+from google.oauth2 import id_token
 import requests
 
 
@@ -44,7 +46,7 @@ def verify_strong_password(password: str) -> str:
 
 def verify_google_token(token: str) -> dict:
     try:
-        google_info = id_token.verify_oauth2_token(token, requests.Request(), 
+        google_info = id_token.verify_oauth2_token(token, Request(), 
         audience = [
             settings.GOOGLE_CLIENT_ID, # web client id
             settings.GOOGLE_ANDROID_CLIENT_ID, # android client id
@@ -62,22 +64,58 @@ def verify_google_token(token: str) -> dict:
         raise Exception("Invalid Google token: " + str(e))
 
 
-def verify_github_token(token: str) -> dict:
+async def verify_github_code(code: str) -> LoginProviderSchema:
+
+    # exchange code for access token from github api
+
+    token_url = "https://github.com/login/oauth/access_token"
+
+    headers = {"Accept": "application/json"}
+    data = {
+        "client_id": settings.GITHUB_CLIENT_ID,
+        "client_secret": settings.GITHUB_CLIENT_SECRET,
+        "code": code
+    }
+
+    token_response = requests.post(token_url, headers=headers, data=data)
+    token_json = token_response.json()
+    access_token = token_json.get("access_token")
+    if not access_token:
+        raise HTTPException(status_code=400, detail="Failed to get access token")
+
+    # convert access token to user info from github api
+
     try:
         headers = {
-            "Authorization": f"token {token}"
+            "Authorization": f"Bearer {access_token}",
+            "Accept": "application/json"
         }
-        response = requests.get("https://api.github.com/user", headers = headers)
+        response = requests.get("https://api.github.com/user", headers=headers, timeout=5)
+
+
         if response.status_code != 200:
-            raise Exception("Invalid GitHub token")
+            raise HTTPException(status_code=400, detail="Invalid GitHub token")
+        
         github_info = response.json()
+        email = github_info.get("email")
+
+        if not email:
+            email_response = requests.get("https://api.github.com/user/emails", headers=headers, timeout=5)
+            if email_response.status_code == 200:
+                emails = email_response.json()
+                primary_email = next((e for e in emails if e.get("primary")), None)
+                if primary_email:
+                    email = primary_email.get("email")
+
         user_dict = {
             "name": github_info.get("name", github_info.get("login", "")),
-            "email": github_info.get("email", ""), 
-            "provider_id": github_info["id"],
+            "email": email,
+            "provider_id": str(github_info["id"]),
             "provider": Providers.GITHUB.value
         }
+
         return LoginProviderSchema(**user_dict)
-    
+
     except Exception as e:
-        raise Exception("Invalid GitHub token")
+        raise HTTPException(status_code=400, detail="Invalid GitHub token: " + str(e))
+        

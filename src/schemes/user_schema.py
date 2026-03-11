@@ -32,7 +32,7 @@ class LoginProviderSchema(BaseModel):
 
 
 class ProviderLoginRequestSchema(BaseModel):
-    token: str
+    id_token: str
     provider: str
 
 

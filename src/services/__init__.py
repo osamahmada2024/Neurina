@@ -1,1 +1,1 @@
-from .auth_service import create_access_token, verify_access_token, verify_strong_password, verify_google_token, verify_github_token
+from .auth_service import create_access_token, verify_access_token, verify_strong_password, verify_google_token, verify_github_code
