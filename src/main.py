@@ -3,7 +3,7 @@ from pathlib import Path
 from .config import settings
 from .models import init_db
 from .routes import router
-from .controllers import image_controller
+from .controllers.image import image_controller
 from .services import ModelLoader
 import os
 
@@ -38,13 +38,15 @@ async def _sync_public_references_on_startup(base_path: Path) -> None:
         root_dir=reference_root,
         public_collection=settings.PUBLIC_REFERENCE_COLLECTION,
     )
-    print(
-        "Public reference sync summary: "
-        f"processed={summary['processed']} "
-        f"inserted={summary['inserted']} "
-        f"updated={summary['updated']} "
-        f"failed={summary['failed']}"
-    )
+    
+    # Only show verbose output if new images were added/updated
+    if summary['inserted'] > 0 or summary['updated'] > 0:
+        print(
+            "Public reference library updated: "
+            f"inserted={summary['inserted']} "
+            f"updated={summary['updated']} "
+            f"failed={summary['failed']}"
+        )
 
     if bool(settings.PUBLIC_REFERENCE_SYNC_FAIL_ON_ERROR) and summary["failed"] > 0:
         sample_error = summary["errors"][0]

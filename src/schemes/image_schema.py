@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List, Any, Generic, TypeVar
 from bson import ObjectId
 from datetime import datetime
 from ..models.Enums import ImageStatus, ImageType, TaskStatus
@@ -9,7 +9,8 @@ class ImageSchema(BaseModel):
     id: Optional[ObjectId] = Field(default=None, alias="_id")
     user_id: ObjectId
     image_type: str = Field(...)  # Using ImageType enum values
-    image_data: str = Field(...)  # base64 or file path
+    image_data: str = Field(...)  # base64 - for translated/preprocessed
+    image_data_original: Optional[str] = None  # base64 - original uploaded (for uploaded images only)
     original_filename: str
     status: str = Field(default=ImageStatus.UPLOADED.value)
     faces_detected: int = 0
@@ -59,3 +60,116 @@ class ImageUploadResponseSchema(BaseModel):
 
     class Config:
         arbitrary_types_allowed = True
+        exclude_none = True
+
+
+# ================== Professional Response Schemas ==================
+
+class ImageDataResponse(BaseModel):
+    """Lightweight image metadata for listings."""
+    id: str = Field(..., alias="_id")
+    filename: str
+    type: str  # source, reference, translated
+    domain: Optional[str] = None
+    status: str
+    faces_detected: int
+    created_at: str
+    size_bytes: Optional[int] = None
+
+    class Config:
+        populate_by_name = True
+        arbitrary_types_allowed = True
+        exclude_none = True
+
+
+class TranslationTaskResponse(BaseModel):
+    """Translation task details."""
+    task_id: str = Field(..., alias="_id")
+    source_image_id: str
+    reference_image_id: str
+    translated_image_id: Optional[str] = None
+    status: str  # pending, processing, completed, failed
+    translation_mode: Optional[str] = None
+    source_domain: Optional[str] = None
+    target_domain: Optional[str] = None
+    created_at: str
+    updated_at: str
+    error_message: Optional[str] = None
+
+    class Config:
+        populate_by_name = True
+        arbitrary_types_allowed = True
+        exclude_none = True
+
+
+class ListResponse(BaseModel):
+    """Generic paginated list response."""
+    count: int = Field(..., description="Number of items in this page")
+    total: int = Field(..., description="Total items available")
+    limit: int = Field(..., description="Items per page")
+    offset: int = Field(..., description="Current offset")
+    has_more: bool = Field(..., description="Whether more items exist")
+    items: List[Any] = Field(...)
+
+    class Config:
+        arbitrary_types_allowed = True
+        exclude_none = True
+
+
+class SuccessResponse(BaseModel):
+    """Generic success response wrapper."""
+    success: bool = True
+    message: str
+    data: Optional[Any] = None
+    timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+
+    class Config:
+        arbitrary_types_allowed = True
+        exclude_none = True
+
+
+class ErrorResponse(BaseModel):
+    """Generic error response wrapper."""
+    success: bool = False
+    error_code: str
+    message: str
+    details: Optional[dict] = None
+    timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+
+    class Config:
+        arbitrary_types_allowed = True
+        exclude_none = True
+
+
+class UploadCompleteResponse(BaseModel):
+    """Response after successful image upload."""
+    success: bool
+    message: str
+    image_id: Optional[str] = None
+    image_type: Optional[str] = None
+    filename: Optional[str] = None
+    faces_detected: Optional[int] = None
+    status: Optional[str] = None
+    created_at: Optional[str] = None
+    error_code: Optional[str] = None
+    details: Optional[dict] = None
+
+    class Config:
+        arbitrary_types_allowed = True
+        exclude_none = True
+
+
+class TranslationCreatedResponse(BaseModel):
+    """Response when translation task is created or completed."""
+    success: bool
+    message: str
+    task_id: Optional[str] = None
+    status: Optional[str] = None
+    translated_image_id: Optional[str] = None
+    created_at: Optional[str] = None
+    error_code: Optional[str] = None
+    details: Optional[dict] = None
+
+    class Config:
+        arbitrary_types_allowed = True
+        exclude_none = True

@@ -29,7 +29,6 @@ class Settings(BaseSettings):
     PUBLIC_REFERENCE_SYNC_FAIL_ON_ERROR: bool = True
     FACE_CROP_SERVICE_URL: str = "http://face-crop-service:8010/crop"
     FACE_CROP_TIMEOUT_SECONDS: int = 15
-    TRACE_OUTPUT_DIR: str = "./runtime/traces"
     W_HPF: float = 1.0
     NUM_DOMAINS: int = 2
     REFERENCE_DOMAIN_LABEL: int = 0
