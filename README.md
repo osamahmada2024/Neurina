@@ -1,43 +1,17 @@
 # Neurina
 
-This is an implementation of the Style Shifting App.
+FastAPI service for face preprocessing, public reference sync, and StarGAN v2 image translation.
 
-## Requirements
-
-- Python 3.8 or later 
-
-
-#### Install Python using AnaConda
-
-1) Install Anaconda or Mini-Conda "https://www.anaconda.com/download"
-
-
-2) Create a new environment using the following command :
-``` bash
-$ conda create -n stargan2_new python=3.10.19
-```
-
-3) Activate the environment:
-```bash
-$ conda activate stargan2_new
-```
-
-
-## Installation
-#### Install the required packages
+## Run
 
 ```bash
-$ pip install -r requirements.txt
+pip install -r requirements.txt
+docker compose -f docker/docker-compose.yml up -d
+uvicorn src.main:app --host 0.0.0.0 --port 8000
 ```
 
-## setup the environment variables 
-```bash 
-$ cp .env.example .env
-```
-Set your environment variables in the `.env` file. Like `SECRET_KEY`, ..... .
+## Config
 
-## Run  the FastAPI server 
-
-```bash
-$ uvicorn src.main:app --reload --host 0.0.0.0 --port 5000
-```
+- Copy `C:\Users\osama\Projects\Neurina\src\.env.example` to `C:\Users\osama\Projects\Neurina\src\.env`
+- Set production secrets before deploy
+- `Ref_Database` is synced into MongoDB on startup

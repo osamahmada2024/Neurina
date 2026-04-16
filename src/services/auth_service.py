@@ -7,6 +7,11 @@ from google.auth.transport.requests import Request
 from google.oauth2 import id_token
 import requests
 from fastapi import HTTPException
+import smtplib
+import asyncio
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from ..helpers import render_email_template
 
 
 def create_access_token(data: dict) -> str:
@@ -78,9 +83,8 @@ async def verify_github_code(code: str) -> LoginProviderSchema:
         "code": code
     }
 
-    token_response =  requests.post(token_url, headers=headers, data=data)
+    token_response =  requests.post(token_url, headers=headers, data=data, timeout=5)
     token_json = token_response.json()
-    print("GitHub token response:", token_json)  # Debugging line
     access_token = token_json.get("access_token")
 
     if not access_token:
@@ -121,4 +125,58 @@ async def verify_github_code(code: str) -> LoginProviderSchema:
 
     except Exception as e:
         raise HTTPException(status_code=400, detail="Invalid GitHub token: " + str(e))
+
+
+def create_reset_token(data: dict) -> str:
+
+    to_encode = data.copy()
+    expire = datetime.now(timezone.utc) + timedelta(minutes = 15)
+    to_encode.update({"exp" : expire})
+    token = jwt.encode(to_encode, settings.SECRET_KEY, algorithm = settings.ALGORITHM)
+
+    return token
+
+
+def verify_reset_token(token: str):
+
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms = [settings.ALGORITHM])
+        return payload
+
+    except JWTError:
+        return None
+
+
+def send_reset_email(email: str, reset_token: str, app_type: str = "web") -> None:
+
+    try:
+        subject = "Reset Your Password"
+        reset_link = settings.RESET_LINK_WEB if app_type == "web" else settings.RESET_LINK_MOBILE
+        reset_url = f"{reset_link}?token={reset_token}"
         
+        # Render email template
+        html_body = render_email_template("reset_password_email.html", {
+            "reset_url": reset_url
+        })
+
+        message = MIMEMultipart("alternative")
+        message["Subject"] = subject
+        message["From"] = settings.SMTP_EMAIL
+        message["To"] = email
+        
+        html_part = MIMEText(html_body, "html")
+        message.attach(html_part)
+
+        with smtplib.SMTP(settings.SMTP_SERVER, settings.SMTP_PORT) as server:
+            server.starttls()
+            server.login(settings.SMTP_EMAIL, settings.SMTP_PASSWORD)
+            server.sendmail(settings.SMTP_EMAIL, email, message.as_string())
+
+    except Exception as e:
+        raise Exception("Failed to send email: " + str(e))
+
+
+async def send_reset_email_async(email: str, reset_token: str, app_type: str = "web") -> None:
+
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, send_reset_email, email, reset_token, app_type)

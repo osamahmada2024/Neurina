@@ -14,6 +14,17 @@ services:
       - backend
 
     restart: always
+
+  face-crop-service:
+    build:
+      context: ./face_crop_service
+      dockerfile: Dockerfile
+    container_name: face-crop-service
+    ports:
+      - "8010:8010"
+    networks:
+      - backend
+    restart: always
   
 networks:
   backend:

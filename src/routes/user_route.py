@@ -1,12 +1,24 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
-from ..controllers import sign_up_controller, sign_in_controller, Github_login_controller, Google_login_controller
-from ..schemes import UserSchema, UserResponseSchema, LoginSchema, ProviderLoginRequestSchema, UserProfileSchema
+from ..controllers import (
+    sign_up_controller, 
+    sign_in_controller, 
+    Github_login_controller, 
+    Google_login_controller,
+    forget_password_controller,
+    reset_password_controller,
+    edit_profile_controller
+)
+from ..schemes import (
+    UserSchema,
+    LoginSchema,
+    ProviderLoginRequestSchema,
+    UserProfileSchema,
+    ForgotPasswordSchema,
+    ResetPasswordSchema,
+    EditProfileSchema,
+)
 from ..services import verify_access_token
 from fastapi.security import OAuth2PasswordBearer
-from typing import Union
-from ..models import Providers
-from ..config import settings
-import requests
 from ..models import database
 from bson import ObjectId
 
@@ -69,5 +81,36 @@ async def get_profile_user(token: str = Depends(oauth2_scheme)):
 
         return UserProfileSchema(**user)
 
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=401, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Failed to load profile: {str(e)}")
+
+
+@router.post("/forgot-password")
+async def forgot_password_user(request: ForgotPasswordSchema):
+
+    try:
+        return await forget_password_controller(request)
+    except Exception as e:
+        raise HTTPException(status_code = 400, detail = str(e))
+
+
+@router.post("/reset-password")
+async def reset_password_user(request: ResetPasswordSchema):
+
+    try:
+        return await reset_password_controller(request)
+    except Exception as e:
+        raise HTTPException(status_code = 400, detail = str(e))
+
+
+@router.put("/edit-profile")
+async def edit_profile_user(request: EditProfileSchema, token: str = Depends(oauth2_scheme)):
+
+    try:
+        return await edit_profile_controller(token, request)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code = 500, detail = f"Failed to update profile: {str(e)}")
