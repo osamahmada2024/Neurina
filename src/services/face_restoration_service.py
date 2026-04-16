@@ -16,9 +16,14 @@ import numpy as np
 
 class FaceRestorationService:
     """
-    Post-process aligned face crops.
-    Defaults to a face-aware GFPGAN pipeline and falls back to Real-ESRGAN for
-    generic upscaling or extra enlargement beyond the face-restoration pass.
+    Post-process aligned face crops using GFPGAN, CodeFormer, or Real-ESRGAN.
+    
+    Dependencies:
+    - GFPGAN: installed via pip (see requirements.txt)
+    - CodeFormer: source code in .vendor/CodeFormer/ (not available on PyPI)
+    - Real-ESRGAN: installed via pip (see requirements.txt)
+    
+    Model weights are automatically downloaded on first use to checkpoints/face_restoration/
     """
 
     MODEL_URLS = {
@@ -93,28 +98,17 @@ class FaceRestorationService:
 
     @staticmethod
     def _import_gfpganer(base_path: str):
+        """Import GFPGANer from pip-installed gfpgan package."""
         FaceRestorationService._ensure_torchvision_functional_tensor_alias()
         FaceRestorationService._suppress_torchvision_pretrained_warnings()
-
-        vendor_root = Path(base_path) / ".vendor" / "GFPGAN"
-        inserted = False
-        if vendor_root.is_dir():
-            vendor_path = str(vendor_root)
-            if vendor_path not in sys.path:
-                sys.path.insert(0, vendor_path)
-                inserted = True
+        
         try:
-            cached = sys.modules.get("gfpgan")
-            if cached is not None and (getattr(cached, "__file__", None) is None or not hasattr(cached, "GFPGANer")):
-                sys.modules.pop("gfpgan", None)
-            module = importlib.import_module("gfpgan")
-            return module.GFPGANer
-        finally:
-            if inserted:
-                try:
-                    sys.path.remove(str(vendor_root))
-                except ValueError:
-                    pass
+            from gfpgan import GFPGANer
+            return GFPGANer
+        except ImportError:
+            raise ImportError(
+                "gfpgan is not installed. Install it with: pip install -r requirements.txt"
+            )
 
     def _get_model_info(self) -> tuple[str, int, str]:
         if self.model_name not in self.MODEL_URLS:
