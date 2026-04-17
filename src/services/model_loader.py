@@ -1,5 +1,6 @@
 import os
 import logging
+from pathlib import Path
 import torch
 from ..models.neural_models import Generator, StyleEncoder
 from ..config import settings
@@ -9,6 +10,13 @@ logger = logging.getLogger(__name__)
 
 class ModelLoader:
     """Load neural network models on startup"""
+
+    @staticmethod
+    def _resolve_path(base_path, configured_path):
+        path = Path(configured_path).expanduser()
+        if not path.is_absolute():
+            path = Path(base_path) / path
+        return str(path)
     
     @staticmethod
     def load_models(base_path, checkpoint_path=None, fallback_path=None):
@@ -23,7 +31,7 @@ class ModelLoader:
             device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
             logger.debug(f"Device: {device}")
 
-            wing_path = os.path.join(base_path, "checkpoints", "wing.ckpt")
+            wing_path = ModelLoader._resolve_path(base_path, settings.WING_MODEL_PATH)
 
             if checkpoint_path is not None or fallback_path is not None:
                 # Use explicitly provided paths (e.g. from HuggingFace download)

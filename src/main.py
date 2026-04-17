@@ -82,11 +82,14 @@ async def startup_event():
     console_feedback("Loading models...")
     preloader = ModelPreloader(str(base_path))
     loading_results = preloader.preload_all_models()
+    loading_errors = preloader.get_loading_errors()
     
     # Check if all critical models loaded successfully
     if not loading_results.get('stargan_models', False):
-        logger.error("Critical: StarGAN v2 models failed to load")
-        raise RuntimeError("Failed to load StarGAN v2 models - cannot start server")
+        error_detail = loading_errors.get("stargan_models", "No additional detail captured")
+        logger.error("Critical: StarGAN v2 models failed to load: %s", error_detail)
+        console_feedback("StarGAN model loading failed")
+        raise RuntimeError(f"Failed to load StarGAN v2 models - cannot start server. {error_detail}")
     
     if not loading_results.get('face_restoration_models', False):
         logger.debug("Face restoration models failed to load - image enhancement will be disabled")
@@ -98,7 +101,9 @@ async def startup_event():
     stargan_models = preloader.get_model('stargan')
     face_restoration_service = preloader.get_model('face_restoration')
     wing_path = preloader.get_model('wing_path')
-    celeba_lm_path = base_path / "checkpoints" / "celeba_lm_mean.npz"
+    celeba_lm_path = Path(settings.CELEBA_LM_MEAN_PATH).expanduser()
+    if not celeba_lm_path.is_absolute():
+        celeba_lm_path = base_path / celeba_lm_path
     
     image_controller.initialize_models(
         generator=stargan_models["generator"] if stargan_models else None,

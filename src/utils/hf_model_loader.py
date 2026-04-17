@@ -14,6 +14,8 @@ from typing import Optional
 from huggingface_hub import hf_hub_download
 from huggingface_hub.utils import RepositoryNotFoundError, RevisionNotFoundError
 
+from ..config.model_loading import model_loading_settings
+
 try:
     from huggingface_hub import HfHubHTTPError
 except ImportError:
@@ -22,8 +24,6 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-# Configuration
-HF_REPO_ID = "Osama12324234/face-models"
 MAX_RETRIES = 3
 RETRY_DELAY = 2  # seconds
 
@@ -34,7 +34,7 @@ class HFModelLoadError(Exception):
 
 
 def download_hf_model(
-    repo_id: str,
+    repo_id: Optional[str],
     filename: str,
     cache_dir: Optional[str] = None,
     max_retries: int = MAX_RETRIES,
@@ -57,18 +57,30 @@ def download_hf_model(
         HFModelLoadError: If download fails after all retries
     """
     last_error = None
-    token = os.environ.get("HF_TOKEN")
+    resolved_repo_id = repo_id or model_loading_settings.hf_model_repo
+    resolved_cache_dir = cache_dir
+    if resolved_cache_dir is None:
+        configured_cache_dir = model_loading_settings.resolve_cache_dir()
+        resolved_cache_dir = str(configured_cache_dir) if configured_cache_dir else None
+
+    token = os.environ.get("HF_TOKEN") or model_loading_settings.hf_token
 
     for attempt in range(max_retries + 1):
         try:
-            logger.info(f"Downloading {filename} from {repo_id} (attempt {attempt + 1}/{max_retries + 1})")
+            logger.info(
+                "Downloading %s from %s (attempt %s/%s, auth=%s)",
+                filename,
+                resolved_repo_id,
+                attempt + 1,
+                max_retries + 1,
+                "configured" if token else "missing",
+            )
 
             model_path = hf_hub_download(
-                repo_id=repo_id,
+                repo_id=resolved_repo_id,
                 filename=filename,
-                cache_dir=cache_dir,
+                cache_dir=resolved_cache_dir,
                 token=token,
-                resume_download=False,
                 force_download=False
             )
             
@@ -76,12 +88,12 @@ def download_hf_model(
             return Path(model_path)
             
         except RepositoryNotFoundError as e:
-            error_msg = f"Repository {repo_id} not found or model {filename} doesn't exist"
+            error_msg = f"Repository {resolved_repo_id} not found or model {filename} doesn't exist"
             logger.error(error_msg)
             raise HFModelLoadError(error_msg) from e
             
         except RevisionNotFoundError as e:
-            error_msg = f"Model {filename} not found in repository {repo_id}"
+            error_msg = f"Model {filename} not found in repository {resolved_repo_id}"
             logger.error(error_msg)
             raise HFModelLoadError(error_msg) from e
             
@@ -118,14 +130,14 @@ def ensure_inference_model(filename: str) -> Path:
     """
     try:
         return download_hf_model(
-            repo_id=HF_REPO_ID,
+            repo_id=model_loading_settings.hf_model_repo,
             filename=filename
         )
     except HFModelLoadError as e:
         # Provide helpful error message for users
         logger.error(f"Failed to load inference model {filename}")
-        logger.error(f"Please ensure the model exists in {HF_REPO_ID}")
-        logger.error(f"Visit https://huggingface.co/{HF_REPO_ID} to verify")
+        logger.error(f"Please ensure the model exists in {model_loading_settings.hf_model_repo}")
+        logger.error(f"Visit https://huggingface.co/{model_loading_settings.hf_model_repo} to verify")
         raise
 
 
@@ -137,7 +149,7 @@ def get_model_info() -> dict:
         Dictionary with model information
     """
     return {
-        "repo_id": HF_REPO_ID,
+        "repo_id": model_loading_settings.hf_model_repo,
         "models": {
             "codeformer": {
                 "filename": "codeformer.pth",
@@ -167,7 +179,11 @@ def clear_model_cache() -> None:
     """Clear the Hugging Face model cache."""
     try:
         from huggingface_hub import snapshot_download
-        cache_dir = snapshot_download(repo_id=HF_REPO_ID, allow_patterns=["*.dummy"])
+        cache_dir = snapshot_download(
+            repo_id=model_loading_settings.hf_model_repo,
+            allow_patterns=["*.dummy"],
+            token=os.environ.get("HF_TOKEN") or model_loading_settings.hf_token,
+        )
         if cache_dir:
             import shutil
             shutil.rmtree(cache_dir, ignore_errors=True)

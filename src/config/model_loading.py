@@ -1,13 +1,13 @@
 """
 Model loading configuration.
 
-Only controls the Hugging Face toggle and the local checkpoints directory used
-when remote loading is disabled.
+Controls the Hugging Face toggle plus optional repository, cache, and token
+settings used for remote checkpoint loading.
 """
 
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings
 
 _ENV_FILE = Path(__file__).resolve().parents[1] / ".env"
@@ -24,6 +24,19 @@ class ModelLoadingSettings(BaseSettings):
         default=Path("./checkpoints"),
         description="Directory that stores local inference checkpoints.",
     )
+    hf_model_repo: str = Field(
+        default="Osama12324234/face-models",
+        description="Hugging Face repository that stores inference checkpoints.",
+    )
+    hf_cache_dir: str | None = Field(
+        default=None,
+        description="Optional Hugging Face cache directory override.",
+    )
+    hf_token: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("HF_TOKEN", "MODEL_LOADING_HF_TOKEN"),
+        description="Optional Hugging Face token for private model repositories.",
+    )
 
     model_config = {
         "env_prefix": "MODEL_LOADING_",
@@ -31,6 +44,19 @@ class ModelLoadingSettings(BaseSettings):
         "case_sensitive": False,
         "extra": "ignore",
     }
+
+    @field_validator("hf_model_repo", "hf_cache_dir", "hf_token", mode="before")
+    @classmethod
+    def _normalize_optional_strings(cls, value: object) -> object:
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            return value
+
+        cleaned = value.strip()
+        if len(cleaned) >= 2 and cleaned[0] == cleaned[-1] and cleaned[0] in {"'", '"'}:
+            cleaned = cleaned[1:-1].strip()
+        return cleaned or None
 
     def get_model_source(self) -> str:
         """Return the active checkpoint source label for logs."""
@@ -50,6 +76,12 @@ class ModelLoadingSettings(BaseSettings):
     ) -> Path:
         """Resolve a specific checkpoint path."""
         return self.resolve_checkpoints_dir(base_path) / filename
+
+    def resolve_cache_dir(self) -> Path | None:
+        """Resolve the configured Hugging Face cache directory, if present."""
+        if not self.hf_cache_dir:
+            return None
+        return Path(self.hf_cache_dir).expanduser()
 
 
 model_loading_settings = ModelLoadingSettings()

@@ -12,10 +12,11 @@ from typing import Dict, Optional
 
 import torch
 
+from ..config import settings
+from ..config.model_loading import model_loading_settings
 from .face_restoration_service import FaceRestorationService
 from ..utils.hf_model_loader import ensure_inference_model, HFModelLoadError
 from ..services.model_loader import ModelLoader
-from ..config.model_loading import model_loading_settings
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,14 @@ class ModelPreloader:
     def __init__(self, base_path: str):
         self.base_path = Path(base_path)
         self.loaded_models: Dict[str, any] = {}
+        self.loading_errors: Dict[str, str] = {}
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    def _resolve_configured_path(self, configured_path: str) -> Path:
+        path = Path(configured_path).expanduser()
+        if not path.is_absolute():
+            path = self.base_path / path
+        return path
         
     def preload_all_models(self) -> Dict[str, bool]:
         """
@@ -72,22 +80,36 @@ class ModelPreloader:
                     nets_path = ensure_inference_model("582000_nets.ckpt")
                     logger.info("StarGAN checkpoints downloaded from Hugging Face")
                 except HFModelLoadError as e:
-                    logger.error(f"Failed to download StarGAN checkpoints from HuggingFace: {e}")
-                    return False
+                    logger.warning("Failed to download StarGAN checkpoints from Hugging Face: %s", e)
+                    nets_ema_path = model_loading_settings.resolve_checkpoint_path("582000_nets_ema.ckpt", self.base_path)
+                    nets_path = model_loading_settings.resolve_checkpoint_path("582000_nets.ckpt", self.base_path)
+                    if not nets_ema_path.exists() and not nets_path.exists():
+                        detail = f"Hugging Face download failed and no local fallback checkpoint exists: {e}"
+                        self.loading_errors['stargan_models'] = detail
+                        logger.error(detail)
+                        return False
+                    logger.warning("Falling back to local StarGAN checkpoints after Hugging Face failure")
             else:
-                nets_ema_path = self.base_path / "checkpoints" / "582000_nets_ema.ckpt"
-                nets_path = self.base_path / "checkpoints" / "582000_nets.ckpt"
+                nets_ema_path = model_loading_settings.resolve_checkpoint_path("582000_nets_ema.ckpt", self.base_path)
+                nets_path = model_loading_settings.resolve_checkpoint_path("582000_nets.ckpt", self.base_path)
 
             models = ModelLoader.load_models(str(self.base_path), checkpoint_path=nets_ema_path, fallback_path=nets_path)
             if models:
                 self.loaded_models['stargan'] = models
+                self.loading_errors.pop('stargan_models', None)
                 logger.info("StarGAN v2 models loaded successfully")
                 return True
             else:
+                detail = (
+                    "StarGAN checkpoints were resolved but the model state could not be constructed. "
+                    f"Primary={nets_ema_path}, Fallback={nets_path}"
+                )
+                self.loading_errors['stargan_models'] = detail
                 logger.error("Failed to load StarGAN v2 models")
                 return False
                 
         except Exception as e:
+            self.loading_errors['stargan_models'] = str(e)
             logger.error(f"Error loading StarGAN v2 models: {e}")
             return False
     
@@ -148,10 +170,12 @@ class ModelPreloader:
             
             # Store the initialized service
             self.loaded_models['face_restoration'] = face_service
+            self.loading_errors.pop('face_restoration_models', None)
             logger.info("Face restoration models loaded successfully")
             return True
             
         except Exception as e:
+            self.loading_errors['face_restoration_models'] = str(e)
             logger.error(f"Error loading face restoration models: {e}")
             return False
     
@@ -167,20 +191,23 @@ class ModelPreloader:
                     logger.info("Wing model downloaded from Hugging Face")
                 except HFModelLoadError:
                     logger.warning("Wing model not available on Hugging Face, falling back to local")
-                    wing_path = self.base_path / "checkpoints" / "wing.ckpt"
+                    wing_path = self._resolve_configured_path(settings.WING_MODEL_PATH)
             else:
-                wing_path = self.base_path / "checkpoints" / "wing.ckpt"
+                wing_path = self._resolve_configured_path(settings.WING_MODEL_PATH)
             
             # Verify model exists
             if wing_path.exists() and wing_path.is_file():
                 self.loaded_models['wing_path'] = str(wing_path)
+                self.loading_errors.pop('wing_model', None)
                 logger.info(f"Wing model path verified: {wing_path}")
                 return True
             else:
+                self.loading_errors['wing_model'] = f"Wing model checkpoint not found at {wing_path}"
                 logger.warning(f"Wing model checkpoint not found at {wing_path}")
                 return False
                 
         except Exception as e:
+            self.loading_errors['wing_model'] = str(e)
             logger.error(f"Error loading Wing model: {e}")
             return False
     
@@ -211,3 +238,7 @@ class ModelPreloader:
             summary['wing'] = f"Path: {self.loaded_models['wing_path']}"
         
         return summary
+
+    def get_loading_errors(self) -> Dict[str, str]:
+        """Get loading errors captured during startup preloading."""
+        return self.loading_errors.copy()
