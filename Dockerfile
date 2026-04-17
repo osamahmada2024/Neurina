@@ -18,10 +18,12 @@ COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
 # Install additional dependencies for face restoration
+# Pin versions compatible with numpy 1.26.4 (numpy 2.x causes 'expected np.ndarray' errors)
 RUN pip install --no-cache-dir \
-    gfpgan \
-    realesrgan \
-    basicsr
+    'numpy<2' \
+    gfpgan==1.3.8 \
+    realesrgan==0.3.0 \
+    basicsr==1.4.2
 
 # Copy the vendor directory (CodeFormer needs this)
 COPY .vendor /app/.vendor
