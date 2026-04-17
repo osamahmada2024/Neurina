@@ -17,9 +17,8 @@ class ObjectIdField(str):
         return str(v)
     
     @classmethod
-    def __get_pydantic_json_schema__(cls, field_schema):
-        field_schema.update(type="string")
-        return field_schema
+    def __get_pydantic_json_schema__(cls, _core_schema, _handler):
+        return {"type": "string", "format": "objectid"}
 
 
 class ImageSchema(BaseModel):
@@ -58,23 +57,24 @@ class ImageSchema(BaseModel):
 
 
 class TranslationTaskSchema(BaseModel):
-    id: Optional[ObjectId] = Field(default=None, alias="_id")
-    user_id: ObjectId
-    source_image_id: ObjectId
-    reference_image_id: ObjectId
-    translated_image_id: Optional[ObjectId] = None
+    model_config = ConfigDict(
+        validate_by_name=True,
+        arbitrary_types_allowed=True,
+        json_encoders={
+            ObjectId: lambda x: str(x),
+            datetime: lambda x: x.isoformat()
+        }
+    )
+
+    id: Optional[ObjectIdField] = Field(default=None, alias="_id")
+    user_id: ObjectIdField
+    source_image_id: ObjectIdField
+    reference_image_id: ObjectIdField
+    translated_image_id: Optional[ObjectIdField] = None
     status: str = Field(default=TaskStatus.PENDING.value)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     error_message: Optional[str] = None
-
-    class Config:
-        validate_by_name = True
-        arbitrary_types_allowed = True
-        json_encoders = {
-            ObjectId: lambda x: str(x),
-            datetime: lambda x: x.isoformat()
-        }
 
 
 class ImageUploadResponseSchema(BaseModel):
