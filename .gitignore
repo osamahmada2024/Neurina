@@ -1,45 +1,156 @@
-.mp_env/
-.pytest_cache/
+# ============================================================================
+# AI Model Files & Checkpoints (hosted on HuggingFace)
+# ============================================================================
+*.ckpt
+*.pt
+*.pth
+*.bin
+*.safetensors
+*.npz
+*.pb
+*.pkl
+*.pickle
+*.h5
+*.keras
+
+# Model Directories
+models/
+checkpoints/
+weights/
+face-models/
+pretrained/
+cache/
+
+# ============================================================================
+# Environment & Secrets
+# ============================================================================
+.env
+.env.local
+.env.*.local
+.env.backup
+*.key
+*.pem
+*.p12
+*.pfx
+secrets.json
+
+# ============================================================================
+# Python Cache & Build Artifacts
+# ============================================================================
 __pycache__/
 *.py[cod]
-runtime/
-.vendor/GFPGAN/
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+pip-log.txt
+pip-delete-this-directory.txt
 
-# Model checkpoints (hosted on HuggingFace)
-checkpoints/
-*.ckpt
-*.pth
-*.pt
-*.npz
+# ============================================================================
+# Virtual Environments
+# ============================================================================
+venv/
+ENV/
+env/
+.venv
+.python-version
 
-# Reference database (local images)
+# ============================================================================
+# Generated Uploads & Media
+# ============================================================================
+uploads/
+temp/
+tmp/
+outputs/
+generated/
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.webp
+*.mp4
+*.avi
+*.mov
+
+# Reference databases (local only)
 Ref_Database/
 ref_database/
 
-# Cache directories
-.cache/
+# ============================================================================
+# Database & Cache
+# ============================================================================
+mongodb_data/
+*.db
+*.sqlite
+*.sqlite3
 .huggingface/
-face-models/
+.cache/
 
-# IDE and OS
+# ============================================================================
+# IDE & Editor Files
+# ============================================================================
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+.project
+.pydevproject
+.settings/
+*.sublime-project
+*.sublime-workspace
 .DS_Store
 Thumbs.db
+*.bak
 
-# Python
-*.egg-info/
-dist/
-build/
-.eggs/
+# ============================================================================
+# Logs & Debug
+# ============================================================================
+*.log
+logs/
+debug/
+*.tmp
 
-# Environment
-.env.local
-*.env.backup
+# ============================================================================
+# OS Files
+# ============================================================================
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+desktop.ini
 
-# Database backups
-checkpoints_backup/
-mongodb_data/
+# ============================================================================
+# Docker (optional - uncomment if needed)
+# ============================================================================
+# .dockerignore is separate, but you might ignore docker build outputs
+.docker/
+
+# ============================================================================
+# KEEP TRACKED (important for production)
+# ============================================================================
+# ✓ requirements.txt
+# ✓ src/
+# ✓ docker/
+# ✓ docker-compose.yml
+# ✓ README.md
+# ✓ .gitignore
+# ✓ Dockerfile
+
