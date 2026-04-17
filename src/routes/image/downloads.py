@@ -11,6 +11,7 @@ from fastapi.responses import StreamingResponse
 
 from ...controllers.image_controller import image_controller
 from ...services.image_download_service import ImageDownloadService
+from ...config.cloudinary import cloudinary_settings
 from .dependencies import build_png_response, get_current_user
 
 router = APIRouter()
@@ -29,17 +30,36 @@ async def download_image(
     try:
         image = await image_controller.get_image_by_id_with_ownership(image_id, current_user)
         
-        # For uploaded images: use original, for others use processed
-        image_type = image.get("image_type", "image")
-        if image_type in ["source", "reference"]:
-            # Prefer original if available, fallback to processed
+        # Prefer Cloudinary URL if available (built from public_id)
+        image_data = None
+        
+        # Try processed image first
+        if image.get("cloudinary_public_id_processed"):
+            try:
+                cloud_name = cloudinary_settings.cloud_name
+                public_id = image.get("cloudinary_public_id_processed")
+                image_data = f"https://res.cloudinary.com/{cloud_name}/image/upload/{public_id}.png"
+            except Exception:
+                pass
+        
+        # Fallback to original image on Cloudinary
+        if not image_data and image.get("cloudinary_public_id_original"):
+            try:
+                cloud_name = cloudinary_settings.cloud_name
+                public_id = image.get("cloudinary_public_id_original")
+                image_data = f"https://res.cloudinary.com/{cloud_name}/image/upload/{public_id}.png"
+            except Exception:
+                pass
+        
+        # Last resort: use stored image_data (for legacy data)
+        if not image_data:
             image_data = image.get("image_data_original") or image.get("image_data")
-        else:
-            # For translated/other types, use processed
-            image_data = image.get("image_data")
+        
+        if not image_data:
+            raise ValueError(f"Image data not found for {image_id}")
         
         image_bytes = ImageDownloadService.download_image(image_data, image_id)
-        filename = image.get("original_filename", f"{image_type}_{image_id}.png")
+        filename = image.get("original_filename", f"image_{image_id}.png")
         return build_png_response(image_bytes, filename)
     except HTTPException:
         raise

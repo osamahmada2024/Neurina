@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
+import threading
 from typing import Optional
 
 import base64
@@ -11,7 +13,7 @@ import torch
 from bson import ObjectId
 
 from ...config import settings
-from ...helpers.image_helpers import convert_base64_to_image
+from ...helpers.image_helpers import convert_image_data_to_image
 from ...models import database
 from ...models.Enums import ImageType
 from ...services.face_restoration_service import FaceRestorationService
@@ -30,6 +32,10 @@ class ImageControllerBase:
         self.generator = None
         self.style_encoder = None
         self.face_restoration_service = None
+        self.cloudinary_service = None
+        self._model_pipeline_lock = threading.RLock()
+        self._public_reference_upload_executor = None
+        self._executor_init_lock = threading.Lock()
         self.domain_to_label = {"female": 0, "male": 1}
         self.label_to_domain = {
             label: domain for domain, label in self.domain_to_label.items()
@@ -66,7 +72,8 @@ class ImageControllerBase:
                     256,
                 )
             except Exception as exc:
-                print(f"WingFaceAligner init skipped: {exc}")
+                import logging
+                logging.getLogger(__name__).debug(f"WingFaceAligner init skipped: {exc}")
 
         if wing_model_path:
             try:
@@ -77,28 +84,49 @@ class ImageControllerBase:
                 else:
                     self.face_detector = FaceDetector(wing_model_path=wing_model_path)
             except Exception as exc:
-                print(f"FaceDetector init skipped: {exc}")
+                import logging
+                logging.getLogger(__name__).debug(f"FaceDetector init skipped: {exc}")
 
-    def initialize_postprocessors(self, base_path: str) -> None:
-        self.face_restoration_service = None
-        if not bool(settings.SR_ENABLED):
-            return
+    def initialize_postprocessors(self, base_path: str, preloaded_face_restoration_service=None) -> None:
+        # Use preloaded service if provided, otherwise create new one
+        if preloaded_face_restoration_service is not None:
+            self.face_restoration_service = preloaded_face_restoration_service
+            import logging
+            logging.getLogger(__name__).debug("Using preloaded face restoration service")
+        elif bool(settings.SR_ENABLED):
+            try:
+                self.face_restoration_service = FaceRestorationService(
+                    base_path=base_path,
+                    model_name=settings.SR_MODEL_NAME,
+                    outscale=float(settings.SR_OUTSCALE),
+                    tile=int(settings.SR_TILE),
+                    face_weight=float(settings.SR_FACE_WEIGHT),
+                    codeformer_fidelity=float(settings.SR_CODEFORMER_FIDELITY),
+                )
+                import logging
+                logging.getLogger(__name__).debug(
+                    f"Super-resolution ready: model={settings.SR_MODEL_NAME}, outscale={settings.SR_OUTSCALE}"
+                )
+            except Exception as exc:
+                import logging
+                logging.getLogger(__name__).debug(f"Super-resolution init skipped: {exc}")
+        else:
+            self.face_restoration_service = None
+    
+    def initialize_cloudinary_service(self, cloudinary_service) -> None:
+        """Initialize Cloudinary service for image storage."""
+        self.cloudinary_service = cloudinary_service
 
-        try:
-            self.face_restoration_service = FaceRestorationService(
-                base_path=base_path,
-                model_name=settings.SR_MODEL_NAME,
-                outscale=float(settings.SR_OUTSCALE),
-                tile=int(settings.SR_TILE),
-                face_weight=float(settings.SR_FACE_WEIGHT),
-                codeformer_fidelity=float(settings.SR_CODEFORMER_FIDELITY),
-            )
-            print(
-                "✓ Super-resolution ready: "
-                f"model={settings.SR_MODEL_NAME}, outscale={settings.SR_OUTSCALE}"
-            )
-        except Exception as exc:
-            print(f"Super-resolution init skipped: {exc}")
+    def _get_public_reference_upload_executor(self) -> ThreadPoolExecutor:
+        """Create a dedicated executor so public reference uploads really use 12 threads."""
+        with self._executor_init_lock:
+            if self._public_reference_upload_executor is None:
+                workers = max(1, int(settings.PUBLIC_REFERENCE_SYNC_WORKERS))
+                self._public_reference_upload_executor = ThreadPoolExecutor(
+                    max_workers=workers,
+                    thread_name_prefix="public-ref-upload",
+                )
+        return self._public_reference_upload_executor
 
     @staticmethod
     def _coerce_object_id(value, field_name: str) -> ObjectId:
@@ -140,8 +168,8 @@ class ImageControllerBase:
         prefer_model_variant: bool = False,
     ) -> np.ndarray:
         if prefer_model_variant and image_doc.get("model_image_data"):
-            return convert_base64_to_image(image_doc["model_image_data"])
-        return convert_base64_to_image(image_doc["image_data"])
+            return convert_image_data_to_image(image_doc["model_image_data"])
+        return convert_image_data_to_image(image_doc["image_data"])
 
     @staticmethod
     def _serialize_image_doc(image_doc: dict) -> dict:

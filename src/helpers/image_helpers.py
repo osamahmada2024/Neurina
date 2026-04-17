@@ -3,6 +3,7 @@ import numpy as np
 import torch
 import base64
 import io
+import requests
 from PIL import Image
 from typing import Tuple, Optional
 from ..models.Enums import ImageFormat
@@ -15,11 +16,25 @@ def convert_image_to_base64(image_path: str) -> str:
         return base64.b64encode(image_file.read()).decode()
 
 
-def convert_base64_to_image(base64_str: str) -> np.ndarray:
-    """Convert base64 string to numpy array"""
-    image_data = base64.b64decode(base64_str)
-    image = Image.open(io.BytesIO(image_data))
+def convert_image_data_to_image(image_data: str) -> np.ndarray:
+    """Convert stored image data (base64 or URL) to an OpenCV BGR array."""
+    if not image_data:
+        raise ValueError("Image data is empty")
+
+    if image_data.startswith(("http://", "https://")):
+        response = requests.get(image_data, timeout=20)
+        response.raise_for_status()
+        image_bytes = response.content
+    else:
+        image_bytes = base64.b64decode(image_data)
+
+    image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
     return cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+
+
+def convert_base64_to_image(base64_str: str) -> np.ndarray:
+    """Backward-compatible wrapper for stored image decoding."""
+    return convert_image_data_to_image(base64_str)
 
 
 def convert_opencv_to_pillow(cv_image: np.ndarray) -> Image.Image:

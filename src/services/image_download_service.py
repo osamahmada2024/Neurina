@@ -3,11 +3,12 @@ import io
 
 import cv2
 import numpy as np
+import requests
 from fastapi import HTTPException
 
 
 class ImageDownloadService:
-    """Service for turning stored base64 image payloads into PNG bytes."""
+    """Service for turning stored image payloads into PNG bytes."""
 
     PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -17,6 +18,15 @@ class ImageDownloadService:
             return base64.b64decode(image_data)
         except Exception as exc:
             raise HTTPException(status_code=400, detail=f"Error decoding image bytes: {str(exc)}")
+
+    @staticmethod
+    def download_url_bytes(image_url: str) -> bytes:
+        try:
+            response = requests.get(image_url, timeout=30)
+            response.raise_for_status()
+            return response.content
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=f"Error downloading image: {str(exc)}")
 
     @staticmethod
     def decode_base64_image(image_data: str) -> np.ndarray:
@@ -47,11 +57,20 @@ class ImageDownloadService:
     @staticmethod
     def download_image(image_data: str, filename: str) -> bytes:
         try:
-            image_bytes = ImageDownloadService.decode_base64_bytes(image_data)
+            if image_data.startswith(("http://", "https://")):
+                image_bytes = ImageDownloadService.download_url_bytes(image_data)
+            else:
+                image_bytes = ImageDownloadService.decode_base64_bytes(image_data)
             if image_bytes.startswith(ImageDownloadService.PNG_SIGNATURE):
                 return image_bytes
 
-            img_bgr = ImageDownloadService.decode_base64_image(image_data)
+            if image_data.startswith(("http://", "https://")):
+                nparr = np.frombuffer(image_bytes, np.uint8)
+                img_bgr = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                if img_bgr is None:
+                    raise HTTPException(status_code=400, detail="Error decoding downloaded image")
+            else:
+                img_bgr = ImageDownloadService.decode_base64_image(image_data)
             return ImageDownloadService.encode_png_bytes(img_bgr)
         except HTTPException:
             raise

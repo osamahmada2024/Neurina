@@ -58,8 +58,8 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--show",
         type=int,
-        default=20,
-        help="How many imported IDs to print at the end.",
+        default=0,
+        help="How many image rows to print at the end. Use 0 to keep output summary-only.",
     )
     return parser
 
@@ -75,18 +75,20 @@ async def _run(args: argparse.Namespace) -> int:
 
     print(
         "[SUMMARY] "
-        f"processed={summary['processed']} "
-        f"inserted={summary['inserted']} "
-        f"updated={summary['updated']} "
+        f"total={summary['processed']} "
+        f"uploaded={summary['inserted']} "
+        f"skipped={summary['skipped']} "
+        f"invalid={summary['invalid']} "
         f"failed={summary['failed']} "
         f"root_dir={summary['root_dir']}"
     )
 
-    for item in summary["images"][: max(0, int(args.show))]:
-        print(
-            f"[IMAGE] id={item['_id']} status={item['status']} "
-            f"domain={item['image_domain']} key={item['library_key']}"
-        )
+    if args.show > 0:
+        for item in summary["images"][: int(args.show)]:
+            print(
+                f"[IMAGE] id={item['_id']} status={item['status']} "
+                f"domain={item['image_domain']} key={item['library_key']}"
+            )
 
     for error in summary["errors"][:10]:
         print(f"[ERROR] path={error['path']} error={error['error']}")

@@ -1,8 +1,11 @@
 import os
+import logging
 import torch
 from ..models.neural_models import Generator, StyleEncoder
 from ..config import settings
 from ..wing import FAN
+
+logger = logging.getLogger(__name__)
 
 class ModelLoader:
     """Load neural network models on startup"""
@@ -12,7 +15,7 @@ class ModelLoader:
         """Load generator and style encoder from checkpoint"""
         try:
             device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-            print(f"Device: {device}")
+            logger.debug(f"Device: {device}")
 
             nets_ema_path = os.path.join(base_path, "checkpoints", "582000_nets_ema.ckpt")
             nets_path = os.path.join(base_path, "checkpoints", "582000_nets.ckpt")
@@ -28,8 +31,8 @@ class ModelLoader:
 
             # Prefer EMA weights for inference quality, same as original StarGAN v2 sampling path.
             checkpoint = torch.load(checkpoint_path, map_location=device)
-            print(f"Loaded checkpoint: {checkpoint_path}")
-            print(f"Checkpoint keys: {list(checkpoint.keys())}")
+            logger.debug(f"Loaded checkpoint: {checkpoint_path}")
+            logger.debug(f"Checkpoint keys: {list(checkpoint.keys())}")
 
             # Extract state_dicts
             generator_state = checkpoint.get('generator')
@@ -40,14 +43,14 @@ class ModelLoader:
                 return None
 
             # Create model instances and load state_dicts
-            print("Creating Generator model...")
+            logger.debug("Creating Generator model...")
             generator = Generator(img_size=256, style_dim=64, w_hpf=float(settings.W_HPF))
             generator.load_state_dict(generator_state)
             generator.to(device)
             generator.eval()
-            print("✓ Generator loaded successfully")
+            logger.debug("Generator loaded successfully")
             
-            print("Creating StyleEncoder model...")
+            logger.debug("Creating StyleEncoder model...")
             style_encoder = StyleEncoder(
                 img_size=256,
                 style_dim=64,
@@ -56,7 +59,7 @@ class ModelLoader:
             style_encoder.load_state_dict(style_encoder_state)
             style_encoder.to(device)
             style_encoder.eval()
-            print("✓ StyleEncoder loaded successfully")
+            logger.debug("StyleEncoder loaded successfully")
 
             fan_model = None
             fan_state = checkpoint.get("fan")
@@ -64,9 +67,9 @@ class ModelLoader:
                 try:
                     fan_model = FAN().to(device).eval()
                     fan_model.load_state_dict(fan_state, strict=False)
-                    print("✓ FAN loaded from checkpoint")
+                    logger.debug("FAN loaded from checkpoint")
                 except Exception as e:
-                    print(f"⚠ FAN checkpoint load failed: {e}")
+                    logger.warning(f"FAN checkpoint load failed: {e}")
                     fan_model = None
             
             return {
@@ -79,7 +82,5 @@ class ModelLoader:
             }
         
         except Exception as e:
-            print(f"✗ Error loading models: {str(e)}")
-            import traceback
-            traceback.print_exc()
+            logger.error(f"Error loading models: {str(e)}", exc_info=True)
             return None

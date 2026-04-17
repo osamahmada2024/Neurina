@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime
+import logging
 from types import SimpleNamespace
 
 import cv2
@@ -12,6 +13,8 @@ from ...config import settings
 from ...models import database
 from ...models.Enums import ImageStatus, ImageType, TaskStatus
 from ...services.image_translation_service import translate_using_reference
+
+logger = logging.getLogger(__name__)
 
 
 class ImageTranslationMixin:
@@ -230,14 +233,42 @@ class ImageTranslationMixin:
                         trace_context=trace_context,
                     )
                 except Exception as exc:
-                    print(f"Super-resolution skipped during translation: {exc}")
+                    logger.debug("Translation super-resolution skipped: %s", exc)
 
             final_bgr = self._rescue_translated_eyes(
                 final_bgr,
                 source_doc,
                 trace_context=trace_context,
             )
-            translated_base64 = self._encode_png_base64(final_bgr)
+            
+            # Upload to Cloudinary or fallback to base64
+            translated_image_url = None
+            if self.cloudinary_service is not None:
+                try:
+                    # Upload translated image to Cloudinary
+                    upload_result = self.cloudinary_service.upload_translation_result(
+                        image_bgr=final_bgr,
+                        user_id=str(source_doc["user_id"]),
+                        source_image_id=str(source_doc["_id"]),
+                        reference_image_id=str(reference_doc["_id"])
+                    )
+                    translated_image_url = upload_result['secure_url']
+                    
+                    self._trace_image(
+                        final_bgr,
+                        "cloudinary_upload_success",
+                        "translated",
+                        trace_context=trace_context,
+                    )
+                    
+                except Exception as exc:
+                    logger.debug("Cloudinary fallback applied for translation: %s", exc)
+                    # Fallback to base64 if Cloudinary fails
+                    translated_image_url = self._encode_png_base64(final_bgr)
+            else:
+                # Fallback to base64 if Cloudinary service not available
+                translated_image_url = self._encode_png_base64(final_bgr)
+            
             self._trace_image(
                 final_bgr,
                 "db_save_image",
@@ -245,16 +276,20 @@ class ImageTranslationMixin:
                 trace_context=trace_context,
             )
 
+            # Determine if we're using URLs or base64
+            is_cloudinary = self.cloudinary_service is not None and isinstance(translated_image_url, str) and translated_image_url.startswith('http')
+            
             translated_doc = {
                 "user_id": source_doc["user_id"],
                 "image_type": ImageType.TRANSLATED.value,
-                "image_data": translated_base64,
+                "image_data": translated_image_url,  # URL or base64
                 "original_filename": f"translated_{source_doc.get('original_filename', 'image.jpg')}",
                 "status": ImageStatus.TRANSLATION_COMPLETED.value,
                 "faces_detected": 1,
                 "landmarks": None,
                 "created_at": datetime.utcnow(),
                 "updated_at": datetime.utcnow(),
+                "storage_type": "cloudinary" if is_cloudinary else "base64",
             }
             result = await database["images"].insert_one(translated_doc)
             translated_image_id = str(result.inserted_id)

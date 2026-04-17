@@ -9,17 +9,23 @@ class ImageSchema(BaseModel):
     id: Optional[ObjectId] = Field(default=None, alias="_id")
     user_id: ObjectId
     image_type: str = Field(...)  # Using ImageType enum values
-    image_data: str = Field(...)  # base64 - for translated/preprocessed
-    image_data_original: Optional[str] = None  # base64 - original uploaded (for uploaded images only)
     original_filename: str
     status: str = Field(default=ImageStatus.UPLOADED.value)
     faces_detected: int = 0
-    landmarks: Optional[list] = None
     image_domain: Optional[str] = None
     domain_label: Optional[int] = None
     is_public: bool = False
     public_collection: Optional[str] = None
     library_key: Optional[str] = None
+    
+    # Cloudinary storage
+    cloudinary_public_id_processed: Optional[str] = None
+    cloudinary_public_id_original: Optional[str] = None
+    storage_type: Optional[str] = None  # 'cloudinary'
+    
+    # Sync metadata (for public references)
+    sync_status: Optional[str] = None  # 'syncing', 'ready', 'invalid', 'failed'
+    
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -75,6 +81,17 @@ class ImageDataResponse(BaseModel):
     faces_detected: int
     created_at: str
     size_bytes: Optional[int] = None
+
+    class Config:
+        populate_by_name = True
+        arbitrary_types_allowed = True
+        exclude_none = True
+
+
+class PublicReferenceDataResponse(BaseModel):
+    """Minimal public reference payload for the website picker."""
+    id: str = Field(..., alias="_id")
+    cloudinary_url: Optional[str] = None
 
     class Config:
         populate_by_name = True

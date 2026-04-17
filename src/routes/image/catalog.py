@@ -8,7 +8,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from ...controllers.image_controller import image_controller
-from ...schemes.image_schema import ImageDataResponse, ListResponse, TranslationTaskResponse
+from ...schemes.image_schema import (
+    ImageDataResponse,
+    PublicReferenceDataResponse,
+    TranslationTaskResponse,
+)
+from ...config.cloudinary import cloudinary_settings
 from .dependencies import get_current_user
 
 router = APIRouter()
@@ -31,6 +36,16 @@ class ImageListResponse(BaseModel):
     offset: int
     has_more: bool
     items: list[ImageDataResponse]
+
+
+class PublicReferenceListResponse(BaseModel):
+    """Response for public reference library endpoint."""
+    count: int
+    total: int
+    limit: int
+    offset: int
+    has_more: bool
+    items: list[PublicReferenceDataResponse]
 
 
 class TaskListResponse(BaseModel):
@@ -86,12 +101,12 @@ async def get_user_images(
     )
 
 
-@router.get("/public-references", response_model=ImageListResponse, response_model_exclude_none=True)
+@router.get("/public-references", response_model=PublicReferenceListResponse, response_model_exclude_none=True)
 async def get_public_reference_images(
     image_domain: Optional[str] = Query(None, description="male | female"),
     limit: int = Query(100, ge=1, le=100),
     offset: int = Query(0, ge=0),
-) -> ImageListResponse:
+) -> PublicReferenceListResponse:
     try:
         images = await image_controller.get_public_reference_images(
             image_domain=image_domain,
@@ -106,21 +121,16 @@ async def get_public_reference_images(
 
     count = len(images)
     
-    # Convert to professional response format
+    # Keep the public picker payload minimal: id only.
     formatted_images = [
-        ImageDataResponse(
+        PublicReferenceDataResponse(
             _id=img.get("_id"),
-            filename=img.get("original_filename", ""),
-            type=img.get("image_type", ""),
-            domain=img.get("image_domain"),
-            status=img.get("status", ""),
-            faces_detected=img.get("faces_detected", 0),
-            created_at=_to_iso_string(img.get("created_at")),
+            cloudinary_url=None,
         )
         for img in images
     ]
     
-    return ImageListResponse(
+    return PublicReferenceListResponse(
         count=count,
         total=total,
         limit=limit,

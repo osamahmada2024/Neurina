@@ -13,6 +13,9 @@ from typing import Optional
 import cv2
 import numpy as np
 
+from ..config.model_loading import model_loading_settings
+from ..utils.hf_model_loader import ensure_inference_model
+
 
 class FaceRestorationService:
     """
@@ -26,17 +29,22 @@ class FaceRestorationService:
     Model weights are automatically downloaded on first use to checkpoints/face_restoration/
     """
 
+    # Hugging Face models for inference
+    HF_MODELS = {
+        "codeformer": {
+            "filename": "codeformer.pth",
+            "scale": 2,
+            "pipeline": "face_transformer",
+        },
+        "realesrgan_x4plus": {
+            "filename": "RealESRGAN_x4plus.pth",
+            "scale": 4,
+            "pipeline": "generic",
+        },
+    }
+    
+    # Legacy URL models (GFPGAN remains URL-based)
     MODEL_URLS = {
-        "codeformer": (
-            "https://github.com/sczhou/CodeFormer/releases/download/v0.1.0/codeformer.pth",
-            2,
-            "face_transformer",
-        ),
-        "realesrgan_x4plus": (
-            "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth",
-            4,
-            "generic",
-        ),
         "gfpgan_v1.4": (
             "https://github.com/TencentARC/GFPGAN/releases/download/v1.3.8/GFPGANv1.4.pth",
             2,
@@ -111,34 +119,44 @@ class FaceRestorationService:
             )
 
     def _get_model_info(self) -> tuple[str, int, str]:
-        if self.model_name not in self.MODEL_URLS:
-            raise ValueError(f"Unsupported SR model: {self.model_name}")
-        return self.MODEL_URLS[self.model_name]
+        # Check Hugging Face models first
+        if self.model_name in self.HF_MODELS:
+            model_info = self.HF_MODELS[self.model_name]
+            return model_info["filename"], model_info["scale"], model_info["pipeline"]
+        
+        # Fallback to legacy URL models
+        if self.model_name in self.MODEL_URLS:
+            url, scale, pipeline = self.MODEL_URLS[self.model_name]
+            return Path(url).name, scale, pipeline
+            
+        raise ValueError(f"Unsupported SR model: {self.model_name}")
 
     def _weights_dir(self, category: str) -> Path:
         path = self.base_path / "checkpoints" / category
         path.mkdir(parents=True, exist_ok=True)
         return path
 
+    def _resolve_local_inference_checkpoint(self, filename: str) -> Path:
+        return model_loading_settings.resolve_checkpoint_path(filename, self.base_path)
+
+    def _ensure_inference_checkpoint(self, filename: str, scale: int) -> tuple[Path, int]:
+        local_path = self._resolve_local_inference_checkpoint(filename)
+        if local_path.is_file():
+            return local_path, scale
+
+        if not model_loading_settings.use_huggingface:
+            raise FileNotFoundError(
+                f"Local checkpoint not found with Hugging Face disabled: {local_path}"
+            )
+
+        return ensure_inference_model(filename), scale
+
     def _ensure_realesrgan_weights(self) -> tuple[Path, int]:
-        url, scale, _ = self.MODEL_URLS["realesrgan_x4plus"]
-        filename = Path(url).name
-        model_path = self._weights_dir("super_resolution") / filename
-        if model_path.is_file():
-            return model_path, scale
-
-        self._ensure_torchvision_functional_tensor_alias()
-        from basicsr.utils.download_util import load_file_from_url
-
-        load_file_from_url(
-            url=url,
-            model_dir=str(self._weights_dir("super_resolution")),
-            progress=True,
-            file_name=filename,
+        model_info = self.HF_MODELS["realesrgan_x4plus"]
+        return self._ensure_inference_checkpoint(
+            model_info["filename"],
+            model_info["scale"],
         )
-        if not model_path.is_file():
-            raise FileNotFoundError(f"Failed to download SR weights to {model_path}")
-        return model_path, scale
 
     @staticmethod
     def _find_installed_weight(package_name: str, filename: str) -> Optional[Path]:
@@ -185,24 +203,13 @@ class FaceRestorationService:
         return model_path, scale
 
     def _ensure_codeformer_weights(self) -> tuple[Path, int]:
-        url, scale, _ = self.MODEL_URLS["codeformer"]
-        filename = Path(url).name
-        model_path = self._weights_dir("face_restoration") / filename
-        if model_path.is_file():
-            return model_path, scale
-
-        self._ensure_torchvision_functional_tensor_alias()
-        from basicsr.utils.download_util import load_file_from_url
-
-        load_file_from_url(
-            url=url,
-            model_dir=str(self._weights_dir("face_restoration")),
-            progress=True,
-            file_name=filename,
-        )
-        if not model_path.is_file():
-            raise FileNotFoundError(f"Failed to download CodeFormer weights to {model_path}")
-        return model_path, scale
+        if self.model_name == "codeformer":
+            model_info = self.HF_MODELS["codeformer"]
+            return self._ensure_inference_checkpoint(
+                model_info["filename"],
+                model_info["scale"],
+            )
+        raise ValueError(f"Unsupported SR model: {self.model_name}")
 
     @staticmethod
     def _load_module_from_file(module_name: str, file_path: Path):

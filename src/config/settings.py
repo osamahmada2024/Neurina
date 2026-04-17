@@ -3,6 +3,8 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     APP_NAME: str 
     APP_VERSION: str
+    APP_LOG_LEVEL: str = "WARNING"
+    APP_FEEDBACK_LOG_LEVEL: str = "WARNING"
     MONGO_URI: str
     DB_NAME: str
     HOST: str
@@ -27,6 +29,7 @@ class Settings(BaseSettings):
     PUBLIC_REFERENCE_COLLECTION: str = "ref_database"
     PUBLIC_REFERENCE_SYNC_ON_STARTUP: bool = True
     PUBLIC_REFERENCE_SYNC_FAIL_ON_ERROR: bool = True
+    PUBLIC_REFERENCE_SYNC_WORKERS: int = 12
     FACE_CROP_SERVICE_URL: str = "http://face-crop-service:8010/crop"
     FACE_CROP_TIMEOUT_SECONDS: int = 15
     W_HPF: float = 1.0
