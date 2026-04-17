@@ -31,12 +31,29 @@ COPY .vendor /app/.vendor
 # Copy the source code
 COPY src /app/src
 
-# Create checkpoints directory
-RUN mkdir -p /app/checkpoints
+# Create checkpoints directory and pre-download models from HuggingFace during build
+# This avoids long startup downloads that cause crash loops
+RUN mkdir -p /app/checkpoints && \
+    python -c "
+from huggingface_hub import hf_hub_download
+import os
+repo = 'Osama12324234234/face-models'
+dst = '/app/checkpoints'
+files = ['582000_nets_ema.ckpt', '582000_nets.ckpt', 'codeformer.pth', 'RealESRGAN_x4plus.pth', 'wing.ckpt']
+for f in files:
+    out = os.path.join(dst, f)
+    if not os.path.exists(out):
+        print(f'Downloading {f}...')
+        hf_hub_download(repo_id=repo, filename=f, local_dir=dst)
+        print(f'Downloaded {f}')
+    else:
+        print(f'Already cached: {f}')
+print('All models ready')
+"
 
-# Set environment variables
+# Set environment variables - use local checkpoints since we pre-downloaded them
 ENV PYTHONPATH=/app
-ENV MODEL_LOADING_USE_HUGGINGFACE=true
+ENV MODEL_LOADING_USE_HUGGINGFACE=false
 
 EXPOSE 8000
 
