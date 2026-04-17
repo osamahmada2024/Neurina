@@ -22,8 +22,15 @@ class ObjectIdField(str):
 
 
 class ImageSchema(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-    
+    model_config = ConfigDict(
+        populate_by_name=True,
+        arbitrary_types_allowed=True,
+        json_encoders={
+            ObjectId: lambda x: str(x),
+            datetime: lambda x: x.isoformat()
+        }
+    )
+
     id: Optional[ObjectIdField] = Field(default=None, alias="_id")
     user_id: ObjectIdField
     image_type: str = Field(...)  # Using ImageType enum values
@@ -47,18 +54,10 @@ class ImageSchema(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
-    class Config:
-        validate_by_name = True
-        arbitrary_types_allowed = True
-        json_encoders = {
-            ObjectId: lambda x: str(x),
-            datetime: lambda x: x.isoformat()
-        }
-
 
 class TranslationTaskSchema(BaseModel):
     model_config = ConfigDict(
-        validate_by_name=True,
+        populate_by_name=True,
         arbitrary_types_allowed=True,
         json_encoders={
             ObjectId: lambda x: str(x),
@@ -78,20 +77,20 @@ class TranslationTaskSchema(BaseModel):
 
 
 class ImageUploadResponseSchema(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True, exclude_none=True)
+
     image_id: str
     status: str
     message: str
     faces_detected: int
-
-    class Config:
-        arbitrary_types_allowed = True
-        exclude_none = True
 
 
 # ================== Professional Response Schemas ==================
 
 class ImageDataResponse(BaseModel):
     """Lightweight image metadata for listings."""
+    model_config = ConfigDict(populate_by_name=True, arbitrary_types_allowed=True, exclude_none=True)
+
     id: str = Field(..., alias="_id")
     filename: str
     type: str  # source, reference, translated
@@ -101,25 +100,19 @@ class ImageDataResponse(BaseModel):
     created_at: str
     size_bytes: Optional[int] = None
 
-    class Config:
-        populate_by_name = True
-        arbitrary_types_allowed = True
-        exclude_none = True
-
 
 class PublicReferenceDataResponse(BaseModel):
     """Minimal public reference payload for the website picker."""
+    model_config = ConfigDict(populate_by_name=True, arbitrary_types_allowed=True, exclude_none=True)
+
     id: str = Field(..., alias="_id")
     cloudinary_url: Optional[str] = None
-
-    class Config:
-        populate_by_name = True
-        arbitrary_types_allowed = True
-        exclude_none = True
 
 
 class TranslationTaskResponse(BaseModel):
     """Translation task details."""
+    model_config = ConfigDict(populate_by_name=True, arbitrary_types_allowed=True, exclude_none=True)
+
     task_id: str = Field(..., alias="_id")
     source_image_id: str
     reference_image_id: str
@@ -132,14 +125,11 @@ class TranslationTaskResponse(BaseModel):
     updated_at: str
     error_message: Optional[str] = None
 
-    class Config:
-        populate_by_name = True
-        arbitrary_types_allowed = True
-        exclude_none = True
-
 
 class ListResponse(BaseModel):
     """Generic paginated list response."""
+    model_config = ConfigDict(arbitrary_types_allowed=True, exclude_none=True)
+
     count: int = Field(..., description="Number of items in this page")
     total: int = Field(..., description="Total items available")
     limit: int = Field(..., description="Items per page")
@@ -147,38 +137,32 @@ class ListResponse(BaseModel):
     has_more: bool = Field(..., description="Whether more items exist")
     items: List[Any] = Field(...)
 
-    class Config:
-        arbitrary_types_allowed = True
-        exclude_none = True
-
 
 class SuccessResponse(BaseModel):
     """Generic success response wrapper."""
+    model_config = ConfigDict(arbitrary_types_allowed=True, exclude_none=True)
+
     success: bool = True
     message: str
     data: Optional[Any] = None
     timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
 
-    class Config:
-        arbitrary_types_allowed = True
-        exclude_none = True
-
 
 class ErrorResponse(BaseModel):
     """Generic error response wrapper."""
+    model_config = ConfigDict(arbitrary_types_allowed=True, exclude_none=True)
+
     success: bool = False
     error_code: str
     message: str
     details: Optional[dict] = None
     timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
 
-    class Config:
-        arbitrary_types_allowed = True
-        exclude_none = True
-
 
 class UploadCompleteResponse(BaseModel):
     """Response after successful image upload."""
+    model_config = ConfigDict(arbitrary_types_allowed=True, exclude_none=True)
+
     success: bool
     message: str
     image_id: Optional[str] = None
@@ -190,13 +174,11 @@ class UploadCompleteResponse(BaseModel):
     error_code: Optional[str] = None
     details: Optional[dict] = None
 
-    class Config:
-        arbitrary_types_allowed = True
-        exclude_none = True
-
 
 class TranslationCreatedResponse(BaseModel):
     """Response when translation task is created or completed."""
+    model_config = ConfigDict(arbitrary_types_allowed=True, exclude_none=True)
+
     success: bool
     message: str
     task_id: Optional[str] = None
@@ -205,7 +187,3 @@ class TranslationCreatedResponse(BaseModel):
     created_at: Optional[str] = None
     error_code: Optional[str] = None
     details: Optional[dict] = None
-
-    class Config:
-        arbitrary_types_allowed = True
-        exclude_none = True

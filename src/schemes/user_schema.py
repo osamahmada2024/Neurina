@@ -20,7 +20,7 @@ class ObjectIdField(str):
 
 class UserSchema(BaseModel):
     model_config = ConfigDict(
-        validate_by_name=True,
+        populate_by_name=True,
         arbitrary_types_allowed=True,
         json_encoders={
             ObjectId: lambda x: str(x)
@@ -54,7 +54,7 @@ class ProviderLoginRequestSchema(BaseModel):
 
 class UserResponseSchema(BaseModel):
     model_config = ConfigDict(
-        validate_by_name=True,
+        populate_by_name=True,
         arbitrary_types_allowed=True,
         json_encoders={
             ObjectId: lambda x: str(x)
@@ -68,7 +68,7 @@ class UserResponseSchema(BaseModel):
 
 class UserProfileSchema(BaseModel):
     model_config = ConfigDict(
-        validate_by_name=True,
+        populate_by_name=True,
         arbitrary_types_allowed=True,
         json_encoders={
             ObjectId: lambda x: str(x)
