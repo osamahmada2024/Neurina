@@ -4,3 +4,42 @@ __pycache__/
 *.py[cod]
 runtime/
 .vendor/GFPGAN/
+
+# Model checkpoints (hosted on HuggingFace)
+checkpoints/
+*.ckpt
+*.pth
+*.pt
+*.npz
+
+# Reference database (local images)
+Ref_Database/
+ref_database/
+
+# Cache directories
+.cache/
+.huggingface/
+face-models/
+
+# IDE and OS
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Environment
+.env.local
+*.env.backup
+
+# Database backups
+checkpoints_backup/
+mongodb_data/
