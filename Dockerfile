@@ -33,8 +33,8 @@ COPY src /app/src
 
 # Create checkpoints directory and pre-download models from HuggingFace during build
 # This avoids long startup downloads that cause crash loops
-RUN mkdir -p /app/checkpoints && \
-    python -c "
+RUN mkdir -p /app/checkpoints
+RUN python << 'EOF'
 from huggingface_hub import hf_hub_download
 import os
 repo = 'Osama12324234234/face-models'
@@ -49,7 +49,7 @@ for f in files:
     else:
         print(f'Already cached: {f}')
 print('All models ready')
-"
+EOF
 
 # Set environment variables - use local checkpoints since we pre-downloaded them
 ENV PYTHONPATH=/app
