@@ -1,13 +1,32 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List, Any, Generic, TypeVar
 from bson import ObjectId
 from datetime import datetime
 from ..models.Enums import ImageStatus, ImageType, TaskStatus
 
+# Custom ObjectId validator for JSON schema
+class ObjectIdField(str):
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.validate
+    
+    @classmethod
+    def validate(cls, v):
+        if not ObjectId.is_valid(v):
+            raise ValueError("Invalid ObjectId")
+        return str(v)
+    
+    @classmethod
+    def __get_pydantic_json_schema__(cls, field_schema):
+        field_schema.update(type="string")
+        return field_schema
+
 
 class ImageSchema(BaseModel):
-    id: Optional[ObjectId] = Field(default=None, alias="_id")
-    user_id: ObjectId
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    
+    id: Optional[ObjectIdField] = Field(default=None, alias="_id")
+    user_id: ObjectIdField
     image_type: str = Field(...)  # Using ImageType enum values
     original_filename: str
     status: str = Field(default=ImageStatus.UPLOADED.value)

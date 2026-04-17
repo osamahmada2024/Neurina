@@ -137,18 +137,6 @@ def get_model_info() -> dict:
     return {
         "repo_id": HF_REPO_ID,
         "models": {
-            "stargan_nets": {
-                "filename": "582000_nets.ckpt",
-                "description": "StarGAN v2 main networks checkpoint"
-            },
-            "stargan_nets_ema": {
-                "filename": "582000_nets_ema.ckpt",
-                "description": "StarGAN v2 EMA networks checkpoint"
-            },
-            "stargan_optims": {
-                "filename": "582000_optims.ckpt",
-                "description": "StarGAN v2 optimizer states"
-            },
             "codeformer": {
                 "filename": "codeformer.pth",
                 "description": "CodeFormer face restoration model"
@@ -160,10 +148,6 @@ def get_model_info() -> dict:
             "wing": {
                 "filename": "wing.ckpt",
                 "description": "WING face alignment model"
-            },
-            "celeba_landmarks": {
-                "filename": "celeba_lm_mean.npz",
-                "description": "CelebA mean landmarks for face alignment"
             }
         }
     }

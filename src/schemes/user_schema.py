@@ -1,22 +1,22 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, ConfigDict
 from typing import Optional
 from bson import ObjectId
 
 class UserSchema(BaseModel):
-    id : Optional[ObjectId] = Field(default = None, alias = "_id")
+    model_config = ConfigDict(
+        validate_by_name=True,
+        arbitrary_types_allowed=True,
+        json_encoders={
+            ObjectId: lambda x: str(x)
+        }
+    )
+    
+    id: Optional[ObjectId] = Field(default=None, alias="_id")
     name : str = Field(..., min_length = 2)
     email: EmailStr
     password: str = Field(..., min_length = 6)
     provider : Optional[str] = "local"
     profile_picture : Optional[str] = "https://www.radfordacademy.co.uk/content/uploads/sites/14/2024/07/Staff-placeholder-image.jpeg"
-
-    class Config:
-        
-        validate_by_name = True
-        arbitrary_types_allowed = True
-        json_encoders = {
-            ObjectId : lambda x : str(x)
-        }
 
 
 class LoginSchema(BaseModel):
@@ -37,32 +37,32 @@ class ProviderLoginRequestSchema(BaseModel):
 
 
 class UserResponseSchema(BaseModel):
-    id : Optional[ObjectId] = Field(alias="_id")
-    email : EmailStr
-    name : str
-
-    class Config:
-       
-       validate_by_name = True
-       arbitrary_types_allowed = True
-       json_encoders = {
-            ObjectId : lambda x : str(x)
-       }
+    model_config = ConfigDict(
+        validate_by_name=True,
+        arbitrary_types_allowed=True,
+        json_encoders={
+            ObjectId: lambda x: str(x)
+        }
+    )
+    
+    id: Optional[ObjectId] = Field(alias="_id")
+    email: EmailStr
+    name: str
 
 
 class UserProfileSchema(BaseModel):
-    id : Optional[ObjectId] = Field(alias="_id")
-    email : EmailStr
-    name : str
-    profile_picture : Optional[str] = "https://www.radfordacademy.co.uk/content/uploads/sites/14/2024/07/Staff-placeholder-image.jpeg"
-
-    class Config:
-       
-       validate_by_name = True
-       arbitrary_types_allowed = True
-       json_encoders = {
-            ObjectId : lambda x : str(x)
-       }
+    model_config = ConfigDict(
+        validate_by_name=True,
+        arbitrary_types_allowed=True,
+        json_encoders={
+            ObjectId: lambda x: str(x)
+        }
+    )
+    
+    id: Optional[ObjectId] = Field(alias="_id")
+    email: EmailStr
+    name: str
+    profile_picture: Optional[str] = "https://www.radfordacademy.co.uk/content/uploads/sites/14/2024/07/Staff-placeholder-image.jpeg"
 
 
 class ForgotPasswordSchema(BaseModel):

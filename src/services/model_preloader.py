@@ -14,7 +14,6 @@ import torch
 
 from .face_restoration_service import FaceRestorationService
 from ..utils.hf_model_loader import ensure_inference_model, HFModelLoadError
-from ..utils.console_feedback import console_feedback
 from ..services.model_loader import ModelLoader
 from ..config.model_loading import model_loading_settings
 
@@ -28,28 +27,6 @@ class ModelPreloader:
         self.base_path = Path(base_path)
         self.loaded_models: Dict[str, any] = {}
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-    def _get_local_checkpoint_path(self, filename: str) -> Path:
-        return model_loading_settings.resolve_checkpoint_path(filename, self.base_path)
-
-    def _get_inference_checkpoint_path(self, filename: str) -> Optional[Path]:
-        local_path = self._get_local_checkpoint_path(filename)
-
-        if local_path.is_file():
-            return local_path
-
-        if not model_loading_settings.use_huggingface:
-            logger.debug(
-                "Local checkpoint not found with Hugging Face disabled: %s",
-                local_path,
-            )
-            return None
-
-        try:
-            return ensure_inference_model(filename)
-        except HFModelLoadError as exc:
-            logger.error("Failed to load %s from Hugging Face: %s", filename, exc)
-            return None
         
     def preload_all_models(self) -> Dict[str, bool]:
         """
@@ -60,7 +37,7 @@ class ModelPreloader:
         """
         results = {}
         
-        logger.debug(f"Starting model preloading on device: {self.device}")
+        logger.info(f"Starting model preloading on device: {self.device}")
         start_time = time.time()
         
         # 1. Load StarGAN v2 models (training checkpoints)
@@ -75,8 +52,8 @@ class ModelPreloader:
         total_time = time.time() - start_time
         success_count = sum(1 for success in results.values() if success)
         
-        logger.debug(f"Model preloading completed in {total_time:.2f}s")
-        logger.debug(f"Successfully loaded {success_count}/{len(results)} model groups")
+        logger.info(f"Model preloading completed in {total_time:.2f}s")
+        logger.info(f"Successfully loaded {success_count}/{len(results)} model groups")
         
         if not all(results.values()):
             failed_models = [name for name, success in results.items() if not success]
@@ -87,12 +64,12 @@ class ModelPreloader:
     def _preload_stargan_models(self) -> bool:
         """Preload StarGAN v2 models from local checkpoints."""
         try:
-            logger.debug("Loading StarGAN v2 models...")
+            logger.info("Loading StarGAN v2 models...")
             
             models = ModelLoader.load_models(str(self.base_path))
             if models:
                 self.loaded_models['stargan'] = models
-                logger.debug("StarGAN v2 models loaded successfully")
+                logger.info("StarGAN v2 models loaded successfully")
                 return True
             else:
                 logger.error("Failed to load StarGAN v2 models")
@@ -105,18 +82,7 @@ class ModelPreloader:
     def _preload_face_restoration_models(self) -> bool:
         """Preload face restoration models (CodeFormer, Real-ESRGAN)."""
         try:
-            logger.debug(
-                "Loading face restoration models from %s...",
-                model_loading_settings.get_model_source(),
-            )
-
-            codeformer_path = self._get_inference_checkpoint_path("codeformer.pth")
-            if codeformer_path is None:
-                return False
-
-            realesrgan_path = self._get_inference_checkpoint_path("RealESRGAN_x4plus.pth")
-            if realesrgan_path is None:
-                return False
+            logger.info(f"Loading face restoration models from {model_loading_settings.get_model_source()}...")
             
             # Create face restoration service with preloaded models
             face_service = FaceRestorationService(
@@ -127,34 +93,50 @@ class ModelPreloader:
                 face_weight=0.5,
                 codeformer_fidelity=0.7,
             )
-            logger.debug("Preloading CodeFormer model...")
+            logger.info("Preloading CodeFormer model...")
             try:
-                logger.debug("CodeFormer checkpoint resolved at %s", codeformer_path)
+                if model_loading_settings.use_huggingface:
+                    codeformer_path = ensure_inference_model("codeformer.pth")
+                    logger.info("CodeFormer model downloaded from Hugging Face")
+                else:
+                    # Use local checkpoint
+                    codeformer_path = self.base_path / "checkpoints" / "codeformer.pth"
+                    if not codeformer_path.exists():
+                        logger.warning(f"Local CodeFormer model not found at {codeformer_path}")
+                        return False
+                    logger.info("CodeFormer model loaded from local checkpoint")
                 
                 # Trigger model initialization by accessing the model
-                face_service._build_codeformer()
-                console_feedback("CodeFormer ready")
-                logger.debug("CodeFormer model loaded successfully")
+                codeformer_net = face_service._build_codeformer()
+                logger.info("CodeFormer model loaded successfully")
             except Exception as e:
                 logger.error(f"Failed to load CodeFormer: {e}")
                 return False
             
             # Preload Real-ESRGAN model
-            logger.debug("Preloading Real-ESRGAN model...")
+            logger.info("Preloading Real-ESRGAN model...")
             try:
-                logger.debug("Real-ESRGAN checkpoint resolved at %s", realesrgan_path)
-                face_service._ensure_realesrgan_weights()
-                console_feedback("Real-ESRGAN ready")
+                if model_loading_settings.use_huggingface:
+                    realesrgan_path = ensure_inference_model("RealESRGAN_x4plus.pth")
+                    logger.info("Real-ESRGAN model downloaded from Hugging Face")
+                else:
+                    # Use local checkpoint
+                    realesrgan_path = self.base_path / "checkpoints" / "RealESRGAN_x4plus.pth"
+                    if not realesrgan_path.exists():
+                        logger.warning(f"Local Real-ESRGAN model not found at {realesrgan_path}")
+                        return False
+                    logger.info("Real-ESRGAN model loaded from local checkpoint")
                 
-                logger.debug("Real-ESRGAN model preload verified")
-            except Exception as e:
-                logger.error(f"Failed to preload Real-ESRGAN: {e}")
+                # Trigger model initialization
+                upsampler = face_service._build_generic_upsampler()
+                logger.info("Real-ESRGAN model loaded successfully")
+            except HFModelLoadError as e:
+                logger.error(f"Failed to load Real-ESRGAN: {e}")
                 return False
             
             # Store the initialized service
             self.loaded_models['face_restoration'] = face_service
-            console_feedback("High-resolution model ready")
-            logger.debug("Face restoration models loaded successfully")
+            logger.info("Face restoration models loaded successfully")
             return True
             
         except Exception as e:
@@ -164,19 +146,26 @@ class ModelPreloader:
     def _preload_wing_model(self) -> bool:
         """Preload Wing model for face detection."""
         try:
-            logger.debug("Loading Wing model...")
-
-            wing_path = self._get_inference_checkpoint_path("wing.ckpt")
-            if wing_path is None:
-                return False
-
+            logger.info("Loading Wing model...")
+            
+            # Wing model path based on loading preference
+            if model_loading_settings.use_huggingface:
+                try:
+                    wing_path = ensure_inference_model("wing.ckpt")
+                    logger.info("Wing model downloaded from Hugging Face")
+                except HFModelLoadError:
+                    logger.warning("Wing model not available on Hugging Face, falling back to local")
+                    wing_path = self.base_path / "checkpoints" / "wing.ckpt"
+            else:
+                wing_path = self.base_path / "checkpoints" / "wing.ckpt"
+            
+            # Verify model exists
             if wing_path.exists() and wing_path.is_file():
                 self.loaded_models['wing_path'] = str(wing_path)
-                console_feedback("Wing model ready")
-                logger.debug(f"Wing model path verified: {wing_path}")
+                logger.info(f"Wing model path verified: {wing_path}")
                 return True
             else:
-                logger.debug(f"Wing model checkpoint not found at {wing_path}")
+                logger.warning(f"Wing model checkpoint not found at {wing_path}")
                 return False
                 
         except Exception as e:

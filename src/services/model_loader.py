@@ -3,9 +3,7 @@ import logging
 import torch
 from ..models.neural_models import Generator, StyleEncoder
 from ..config import settings
-from ..config.model_loading import model_loading_settings
 from ..wing import FAN
-from ..utils.hf_model_loader import ensure_inference_model, HFModelLoadError
 
 logger = logging.getLogger(__name__)
 
@@ -13,53 +11,23 @@ class ModelLoader:
     """Load neural network models on startup"""
     
     @staticmethod
-    def _resolve_checkpoint_path(filename: str, base_path: str) -> str:
-        """Resolve checkpoint path from HuggingFace first, fallback to local"""
-        # Try HuggingFace FIRST if enabled
-        if model_loading_settings.use_huggingface:
-            try:
-                logger.info(f"Downloading {filename} from HuggingFace ({model_loading_settings.get_model_source()})...")
-                hf_path = ensure_inference_model(filename)
-                logger.info(f"✓ Loaded {filename} from HuggingFace: {hf_path}")
-                return str(hf_path)
-            except HFModelLoadError as e:
-                logger.warning(f"Failed to load {filename} from HuggingFace, trying local: {e}")
-        
-        # Fallback to local if HF disabled or failed
-        local_path = os.path.join(base_path, "checkpoints", filename)
-        if os.path.exists(local_path):
-            logger.info(f"✓ Loaded {filename} from local: {local_path}")
-            return local_path
-        
-        logger.error(f"Could not find {filename} in HuggingFace or local checkpoints")
-        return None
-    
-    @staticmethod
     def load_models(base_path):
         """Load generator and style encoder from checkpoint"""
         try:
             device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
             logger.debug(f"Device: {device}")
-            logger.info(f"Model source: {model_loading_settings.get_model_source()}")
 
-            nets_ema_path = ModelLoader._resolve_checkpoint_path("582000_nets_ema.ckpt", base_path)
-            nets_path = ModelLoader._resolve_checkpoint_path("582000_nets.ckpt", base_path)
-            wing_path = ModelLoader._resolve_checkpoint_path("wing.ckpt", base_path)
-
-            if not nets_ema_path and not nets_path:
-                logger.error("Neither nets_ema nor nets checkpoint found")
-                return None
+            nets_ema_path = os.path.join(base_path, "checkpoints", "582000_nets_ema.ckpt")
+            nets_path = os.path.join(base_path, "checkpoints", "582000_nets.ckpt")
+            wing_path = os.path.join(base_path, "checkpoints", "wing.ckpt")
 
             if str(settings.CHECKPOINT_VARIANT).lower() == "ema":
-                checkpoint_path = nets_ema_path if nets_ema_path else nets_path
+                checkpoint_path = nets_ema_path if os.path.exists(nets_ema_path) else nets_path
             else:
-                checkpoint_path = nets_path if nets_path else nets_ema_path
-            
-            if not checkpoint_path:
-                logger.error(f"Checkpoint not found")
+                checkpoint_path = nets_path if os.path.exists(nets_path) else nets_ema_path
+            if not os.path.exists(checkpoint_path):
+                print(f"✗ Checkpoint not found at {checkpoint_path}")
                 return None
-
-            logger.info(f"Loading checkpoint: {checkpoint_path}")
 
             # Prefer EMA weights for inference quality, same as original StarGAN v2 sampling path.
             checkpoint = torch.load(checkpoint_path, map_location=device)
@@ -108,7 +76,7 @@ class ModelLoader:
                 'generator': generator,
                 'style_encoder': style_encoder,
                 'fan_model': fan_model,
-                'wing_path': wing_path,
+                'wing_path': wing_path if os.path.exists(wing_path) else None,
                 'device': device,
                 'checkpoint_path': checkpoint_path,
             }
