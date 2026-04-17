@@ -57,16 +57,18 @@ def download_hf_model(
         HFModelLoadError: If download fails after all retries
     """
     last_error = None
-    
+    token = os.environ.get("HF_TOKEN")
+
     for attempt in range(max_retries + 1):
         try:
             logger.info(f"Downloading {filename} from {repo_id} (attempt {attempt + 1}/{max_retries + 1})")
-            
+
             model_path = hf_hub_download(
                 repo_id=repo_id,
                 filename=filename,
                 cache_dir=cache_dir,
-                resume_download=True,
+                token=token,
+                resume_download=False,
                 force_download=False
             )
             
