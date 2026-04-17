@@ -25,6 +25,14 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str
     RESET_LINK_WEB: str
     RESET_LINK_MOBILE: str
+    MAX_UPLOAD_SIZE: int = 104857600
+    ALLOWED_IMAGE_FORMATS: str = "jpg,jpeg,png,gif,bmp"
+    IMG_SIZE: int = 256
+    WING_MODEL_PATH: str = "./checkpoints/wing.ckpt"
+    CELEBA_LM_MEAN_PATH: str = "./checkpoints/celeba_lm_mean.npz"
+    USE_GPU: bool = True
+    GPU_DEVICE: int = 0
+    REDIS_URL: str = "redis://localhost:6379"
     PUBLIC_REFERENCE_DIR: str = "Ref_Database"
     PUBLIC_REFERENCE_COLLECTION: str = "ref_database"
     PUBLIC_REFERENCE_SYNC_ON_STARTUP: bool = True
