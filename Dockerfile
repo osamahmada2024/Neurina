@@ -34,7 +34,7 @@ RUN mkdir -p /app/checkpoints
 
 # Set environment variables
 ENV PYTHONPATH=/app
-ENV MODEL_LOADING_USE_HUGGINGFACE=false
+ENV MODEL_LOADING_USE_HUGGINGFACE=true
 
 EXPOSE 8000
 

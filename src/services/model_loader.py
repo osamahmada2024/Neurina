@@ -11,23 +11,48 @@ class ModelLoader:
     """Load neural network models on startup"""
     
     @staticmethod
-    def load_models(base_path):
-        """Load generator and style encoder from checkpoint"""
+    def load_models(base_path, checkpoint_path=None, fallback_path=None):
+        """Load generator and style encoder from checkpoint
+        
+        Args:
+            base_path: Project base path (used for wing model lookup)
+            checkpoint_path: Explicit path to primary checkpoint file (e.g. from HF download)
+            fallback_path: Explicit path to fallback checkpoint file
+        """
         try:
             device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
             logger.debug(f"Device: {device}")
 
-            nets_ema_path = os.path.join(base_path, "checkpoints", "582000_nets_ema.ckpt")
-            nets_path = os.path.join(base_path, "checkpoints", "582000_nets.ckpt")
             wing_path = os.path.join(base_path, "checkpoints", "wing.ckpt")
 
-            if str(settings.CHECKPOINT_VARIANT).lower() == "ema":
-                checkpoint_path = nets_ema_path if os.path.exists(nets_ema_path) else nets_path
+            if checkpoint_path is not None or fallback_path is not None:
+                # Use explicitly provided paths (e.g. from HuggingFace download)
+                nets_ema_path = str(checkpoint_path) if checkpoint_path else None
+                nets_path = str(fallback_path) if fallback_path else None
             else:
-                checkpoint_path = nets_path if os.path.exists(nets_path) else nets_ema_path
-            if not os.path.exists(checkpoint_path):
-                print(f"✗ Checkpoint not found at {checkpoint_path}")
+                # Legacy: look in local checkpoints directory
+                nets_ema_path = os.path.join(base_path, "checkpoints", "582000_nets_ema.ckpt")
+                nets_path = os.path.join(base_path, "checkpoints", "582000_nets.ckpt")
+
+            if str(settings.CHECKPOINT_VARIANT).lower() == "ema":
+                primary = nets_ema_path
+                secondary = nets_path
+            else:
+                primary = nets_path
+                secondary = nets_ema_path
+
+            # Select the first existing path
+            selected = None
+            if primary and os.path.exists(primary):
+                selected = primary
+            elif secondary and os.path.exists(secondary):
+                selected = secondary
+            
+            if not selected:
+                checked = [p for p in [primary, secondary] if p]
+                print(f"✗ Checkpoint not found at {checked}")
                 return None
+            checkpoint_path = selected
 
             # Prefer EMA weights for inference quality, same as original StarGAN v2 sampling path.
             checkpoint = torch.load(checkpoint_path, map_location=device)

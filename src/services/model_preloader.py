@@ -62,11 +62,23 @@ class ModelPreloader:
         return results
     
     def _preload_stargan_models(self) -> bool:
-        """Preload StarGAN v2 models from local checkpoints."""
+        """Preload StarGAN v2 models from HuggingFace or local checkpoints."""
         try:
             logger.info("Loading StarGAN v2 models...")
-            
-            models = ModelLoader.load_models(str(self.base_path))
+
+            if model_loading_settings.use_huggingface:
+                try:
+                    nets_ema_path = ensure_inference_model("582000_nets_ema.ckpt")
+                    nets_path = ensure_inference_model("582000_nets.ckpt")
+                    logger.info("StarGAN checkpoints downloaded from Hugging Face")
+                except HFModelLoadError as e:
+                    logger.error(f"Failed to download StarGAN checkpoints from HuggingFace: {e}")
+                    return False
+            else:
+                nets_ema_path = self.base_path / "checkpoints" / "582000_nets_ema.ckpt"
+                nets_path = self.base_path / "checkpoints" / "582000_nets.ckpt"
+
+            models = ModelLoader.load_models(str(self.base_path), checkpoint_path=nets_ema_path, fallback_path=nets_path)
             if models:
                 self.loaded_models['stargan'] = models
                 logger.info("StarGAN v2 models loaded successfully")

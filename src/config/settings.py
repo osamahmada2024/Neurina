@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     APP_NAME: str 
@@ -56,8 +56,6 @@ class Settings(BaseSettings):
     TRANSLATION_MIN_GRADIENT_P90: float = 110.0
     TRANSLATION_MIN_CONTRAST_STD: float = 55.0
 
-    class Config:
-        env_file = "src/.env"
-        extra = "ignore"
+    model_config = SettingsConfigDict(env_file="src/.env", extra="ignore")
 
 settings = Settings()

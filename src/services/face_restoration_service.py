@@ -227,12 +227,36 @@ class FaceRestorationService:
         if "basicsr.archs.codeformer_arch" in sys.modules:
             return
 
-        codeformer_root = self.base_path / ".vendor" / "CodeFormer" / "basicsr" / "archs"
-        if not codeformer_root.is_dir():
-            raise FileNotFoundError(f"CodeFormer vendor archs not found at {codeformer_root}")
+        # Search paths for CodeFormer arch files (in priority order)
+        search_paths = [
+            self.base_path / ".vendor" / "CodeFormer" / "basicsr" / "archs",
+            self.base_path / "src" / "codeformer_archs",
+            self.base_path / "codeformer_archs",
+        ]
 
-        self._load_module_from_file("basicsr.archs.vqgan_arch", codeformer_root / "vqgan_arch.py")
-        self._load_module_from_file("basicsr.archs.codeformer_arch", codeformer_root / "codeformer_arch.py")
+        for codeformer_root in search_paths:
+            vqgan = codeformer_root / "vqgan_arch.py"
+            codeformer = codeformer_root / "codeformer_arch.py"
+            if vqgan.is_file() and codeformer.is_file():
+                self._load_module_from_file("basicsr.archs.vqgan_arch", vqgan)
+                self._load_module_from_file("basicsr.archs.codeformer_arch", codeformer)
+                logger.info(f"CodeFormer archs loaded from {codeformer_root}")
+                return
+
+        # Fallback: try importing from pip-installed basicsr / CodeFormer package
+        try:
+            from basicsr.archs import codeformer_arch  # noqa: F401
+            from basicsr.archs import vqgan_arch  # noqa: F401
+            logger.info("CodeFormer archs loaded from pip-installed basicsr")
+            return
+        except ImportError:
+            pass
+
+        raise FileNotFoundError(
+            "CodeFormer arch files not found in any search path: "
+            + ", ".join(str(p) for p in search_paths)
+            + ". Ensure .vendor/CodeFormer or src/codeformer_archs/ is present."
+        )
 
     def _build_generic_upsampler(self):
         if self._upsampler is not None:

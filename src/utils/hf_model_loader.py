@@ -148,6 +148,14 @@ def get_model_info() -> dict:
             "wing": {
                 "filename": "wing.ckpt",
                 "description": "WING face alignment model"
+            },
+            "stargan_nets_ema": {
+                "filename": "582000_nets_ema.ckpt",
+                "description": "StarGAN v2 generator & style encoder (EMA weights)"
+            },
+            "stargan_nets": {
+                "filename": "582000_nets.ckpt",
+                "description": "StarGAN v2 generator & style encoder (standard weights)"
             }
         }
     }
