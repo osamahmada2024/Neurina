@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import importlib.util
+import logging
 import os
 import site
 import sys
@@ -15,6 +16,8 @@ import numpy as np
 
 from ..config.model_loading import model_loading_settings
 from ..utils.hf_model_loader import ensure_inference_model
+
+logger = logging.getLogger(__name__)
 
 
 class FaceRestorationService:
