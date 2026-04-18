@@ -22,6 +22,7 @@ email-validator==2.1.1
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 python-multipart==0.0.9
+bcrypt==4.0.1
 
 # Google Auth 
 google-auth==2.29.0
