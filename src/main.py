@@ -95,7 +95,9 @@ async def startup_event():
         console_feedback("StarGAN model loading failed")
         raise RuntimeError(f"Failed to load StarGAN v2 models - cannot start server. {error_detail}")
     
-    if not loading_results.get('face_restoration_models', False):
+    if not bool(settings.SR_ENABLED):
+        console_feedback("Face restoration disabled by config")
+    elif not loading_results.get('face_restoration_models', False):
         logger.debug("Face restoration models failed to load - image enhancement will be disabled")
         console_feedback("Face restoration disabled")
     else:
@@ -133,7 +135,9 @@ async def startup_event():
         bool(celeba_lm_path) and Path(celeba_lm_path).is_file(),
         celeba_lm_path if celeba_lm_path else None,
     )
-    if face_restoration_service is not None:
+    if not bool(settings.SR_ENABLED):
+        _model_status("Face restoration", False, "disabled by config")
+    elif face_restoration_service is not None:
         _model_status("Face restoration", True, "preloaded")
     else:
         preload_enabled = getattr(preloader, "face_restoration_preload_attempted", False)
