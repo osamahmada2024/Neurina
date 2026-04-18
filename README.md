@@ -1,5 +1,5 @@
 
-## Quick Start
+## NeurinaXAI
 
 ```bash
 pip install -r requirements.txt
