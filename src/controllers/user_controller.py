@@ -76,9 +76,20 @@ async def sign_in_controller(user : LoginSchema):
     if not existing_user:
         raise Exception("Invalid email or password")
 
-    # verify password (same SHA-256 + bcrypt process)
+    # verify password (support both old bcrypt-only and new SHA-256 + bcrypt)
     sha256_hash = hashlib.sha256(user.password.encode('utf-8')).hexdigest()
-    if not bcrypt.verify(sha256_hash, existing_user["password"]):
+    # Try new method first
+    if bcrypt.verify(sha256_hash, existing_user["password"]):
+        pass  # New method works
+    # Fall back to old method (bcrypt only)
+    elif bcrypt.verify(user.password, existing_user["password"]):
+        # Update to new hash format for security
+        new_hash = bcrypt.hash(sha256_hash)
+        await database["users"].update_one(
+            {"_id": existing_user["_id"]},
+            {"$set": {"password": new_hash}}
+        )
+    else:
         raise Exception("Invalid email or password")
 
     # create access token

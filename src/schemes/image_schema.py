@@ -7,18 +7,18 @@ from ..models.Enums import ImageStatus, ImageType, TaskStatus
 # Custom ObjectId validator for JSON schema
 class ObjectIdField(str):
     @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
-    
-    @classmethod
-    def validate(cls, v):
+    def validate(cls, v, info=None):
         if not ObjectId.is_valid(v):
             raise ValueError("Invalid ObjectId")
         return str(v)
     
     @classmethod
-    def __get_pydantic_json_schema__(cls, _core_schema, _handler):
-        return {"type": "string", "format": "objectid"}
+    def __get_pydantic_core_schema__(cls, source_type, handler):
+        from pydantic_core import core_schema
+        return core_schema.with_info_plain_validator_function(
+            cls.validate,
+            serialization=core_schema.plain_serializer_function_ser_schema(str)
+        )
 
 
 class ImageSchema(BaseModel):
