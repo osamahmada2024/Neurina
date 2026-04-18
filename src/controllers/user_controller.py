@@ -20,6 +20,7 @@ from ..services import (
     send_reset_email_async
 )
 from passlib.hash import bcrypt
+import hashlib
 from ..models.Enums import Password_Exceeded, Providers
 from typing import Union
 from google.oauth2 import id_token
@@ -47,7 +48,9 @@ async def sign_up_controller(user: UserSchema):
 
     # create new user and hash password
     user_dict = user.model_dump(exclude={"id"})
-    hashed_password = bcrypt.hash(user.password)
+    # Hash with SHA-256 first to handle long passwords, then bcrypt
+    sha256_hash = hashlib.sha256(user.password.encode('utf-8')).hexdigest()
+    hashed_password = bcrypt.hash(sha256_hash)
     user_dict["password"] = hashed_password
     result = await database["users"].insert_one(user_dict)
     user_dict["_id"] = result.inserted_id
@@ -73,8 +76,9 @@ async def sign_in_controller(user : LoginSchema):
     if not existing_user:
         raise Exception("Invalid email or password")
 
-    # verify password
-    if not bcrypt.verify(user.password, existing_user["password"]):
+    # verify password (same SHA-256 + bcrypt process)
+    sha256_hash = hashlib.sha256(user.password.encode('utf-8')).hexdigest()
+    if not bcrypt.verify(sha256_hash, existing_user["password"]):
         raise Exception("Invalid email or password")
 
     # create access token
@@ -205,7 +209,9 @@ async def reset_password_controller(request : ResetPasswordSchema):
     if password_status != Password_Exceeded.VALID:
         raise Exception(password_status.value)
 
-    hashed_password = bcrypt.hash(request.password)
+    # Hash with SHA-256 first to handle long passwords, then bcrypt
+    sha256_hash = hashlib.sha256(request.password.encode('utf-8')).hexdigest()
+    hashed_password = bcrypt.hash(sha256_hash)
 
     await database["users"].update_one(
         {"_id" : existing_user["_id"]},
