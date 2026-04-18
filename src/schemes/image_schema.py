@@ -7,16 +7,17 @@ from ..models.Enums import ImageStatus, ImageType, TaskStatus
 # Custom ObjectId validator for JSON schema
 class ObjectIdField(str):
     @classmethod
-    def validate(cls, v, info=None):
-        if not ObjectId.is_valid(v):
-            raise ValueError("Invalid ObjectId")
-        return str(v)
-    
-    @classmethod
     def __get_pydantic_core_schema__(cls, source_type, handler):
-        from pydantic_core import core_schema
-        return core_schema.with_info_plain_validator_function(
-            cls.validate,
+        from pydantic_core import core_schema, PydanticUndefined
+        
+        def validate_str(value: str) -> str:
+            if not ObjectId.is_valid(value):
+                raise ValueError("Invalid ObjectId")
+            return str(value)
+        
+        return core_schema.no_info_before_validator_function(
+            validate_str,
+            core_schema.str_schema(),
             serialization=core_schema.plain_serializer_function_ser_schema(str)
         )
 
@@ -99,6 +100,7 @@ class ImageDataResponse(BaseModel):
     faces_detected: int
     created_at: str
     size_bytes: Optional[int] = None
+    cloudinary_public_id: Optional[str] = None
 
 
 class PublicReferenceDataResponse(BaseModel):

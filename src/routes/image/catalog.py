@@ -78,18 +78,20 @@ async def get_user_images(
     count = len(images)
     
     # Convert to professional response format
-    formatted_images = [
-        ImageDataResponse(
-            _id=img.get("_id"),
-            filename=img.get("original_filename", ""),
-            type=img.get("image_type", ""),
-            domain=img.get("image_domain"),
-            status=img.get("status", ""),
-            faces_detected=img.get("faces_detected", 0),
-            created_at=_to_iso_string(img.get("created_at")),
+    formatted_images = []
+    for img in images:
+        formatted_images.append(
+            ImageDataResponse(
+                _id=img.get("_id"),
+                filename=img.get("original_filename", ""),
+                type=img.get("image_type", ""),
+                domain=img.get("image_domain"),
+                status=img.get("status", ""),
+                faces_detected=img.get("faces_detected", 0),
+                created_at=_to_iso_string(img.get("created_at")),
+                cloudinary_public_id=img.get("cloudinary_public_id_processed"),
+            )
         )
-        for img in images
-    ]
     
     return ImageListResponse(
         count=count,
@@ -146,6 +148,7 @@ async def get_image(
     current_user: ObjectId = Depends(get_current_user),
 ) -> ImageDataResponse:
     img = await image_controller.get_image_by_id_with_ownership(image_id, current_user)
+    
     return ImageDataResponse(
         _id=img.get("_id"),
         filename=img.get("original_filename", ""),
@@ -154,6 +157,7 @@ async def get_image(
         status=img.get("status", ""),
         faces_detected=img.get("faces_detected", 0),
         created_at=_to_iso_string(img.get("created_at")),
+        cloudinary_public_id=img.get("cloudinary_public_id_processed"),
     )
 
 
