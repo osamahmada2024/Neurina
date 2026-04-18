@@ -52,7 +52,11 @@ class ModelPreloader:
         results['stargan_models'] = self._preload_stargan_models()
         
         # 2. Load Face Restoration models (Hugging Face)
-        results['face_restoration_models'] = self._preload_face_restoration_models()
+        if model_loading_settings.preload_face_restoration_on_startup:
+            results['face_restoration_models'] = self._preload_face_restoration_models()
+        else:
+            logger.info("Skipping face restoration preload at startup; models will load lazily on first use")
+            results['face_restoration_models'] = True
         
         # 3. Load Wing model for face detection
         results['wing_model'] = self._preload_wing_model()
@@ -134,7 +138,7 @@ class ModelPreloader:
                     logger.info("CodeFormer model downloaded from Hugging Face")
                 else:
                     # Use local checkpoint
-                    codeformer_path = self.base_path / "checkpoints" / "codeformer.pth"
+                    codeformer_path = model_loading_settings.resolve_checkpoint_path("codeformer.pth", self.base_path)
                     if not codeformer_path.exists():
                         logger.warning(f"Local CodeFormer model not found at {codeformer_path}")
                         return False
@@ -155,7 +159,7 @@ class ModelPreloader:
                     logger.info("Real-ESRGAN model downloaded from Hugging Face")
                 else:
                     # Use local checkpoint
-                    realesrgan_path = self.base_path / "checkpoints" / "RealESRGAN_x4plus.pth"
+                    realesrgan_path = model_loading_settings.resolve_checkpoint_path("RealESRGAN_x4plus.pth", self.base_path)
                     if not realesrgan_path.exists():
                         logger.warning(f"Local Real-ESRGAN model not found at {realesrgan_path}")
                         return False
@@ -180,7 +184,7 @@ class ModelPreloader:
             return False
     
     def _preload_wing_model(self) -> bool:
-        """Preload Wing model for face detection."""
+        """Preload Wing model assets for face detection and alignment."""
         try:
             logger.info("Loading Wing model...")
             
@@ -192,12 +196,25 @@ class ModelPreloader:
                 except HFModelLoadError:
                     logger.warning("Wing model not available on Hugging Face, falling back to local")
                     wing_path = self._resolve_configured_path(settings.WING_MODEL_PATH)
+
+                try:
+                    celeba_lm_path = ensure_inference_model("celeba_lm_mean.npz")
+                    logger.info("CelebA landmark mean file downloaded from Hugging Face")
+                except HFModelLoadError:
+                    logger.warning("CelebA landmark mean file not available on Hugging Face, falling back to local")
+                    celeba_lm_path = self._resolve_configured_path(settings.CELEBA_LM_MEAN_PATH)
             else:
                 wing_path = self._resolve_configured_path(settings.WING_MODEL_PATH)
+                celeba_lm_path = self._resolve_configured_path(settings.CELEBA_LM_MEAN_PATH)
             
             # Verify model exists
             if wing_path.exists() and wing_path.is_file():
                 self.loaded_models['wing_path'] = str(wing_path)
+                if celeba_lm_path.exists() and celeba_lm_path.is_file():
+                    self.loaded_models['celeba_lm_path'] = str(celeba_lm_path)
+                    logger.info(f"CelebA landmark mean path verified: {celeba_lm_path}")
+                else:
+                    logger.warning(f"CelebA landmark mean file not found at {celeba_lm_path}")
                 self.loading_errors.pop('wing_model', None)
                 logger.info(f"Wing model path verified: {wing_path}")
                 return True
@@ -236,6 +253,8 @@ class ModelPreloader:
         
         if 'wing_path' in self.loaded_models:
             summary['wing'] = f"Path: {self.loaded_models['wing_path']}"
+        if 'celeba_lm_path' in self.loaded_models:
+            summary['celeba_lm'] = f"Path: {self.loaded_models['celeba_lm_path']}"
         
         return summary
 

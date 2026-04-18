@@ -24,6 +24,10 @@ class ModelLoadingSettings(BaseSettings):
         default=Path("./checkpoints"),
         description="Directory that stores local inference checkpoints.",
     )
+    preload_face_restoration_on_startup: bool = Field(
+        default=False,
+        description="When false, face restoration models are created lazily on first use.",
+    )
     hf_model_repo: str = Field(
         default="Osama12324234/face-models",
         description="Hugging Face repository that stores inference checkpoints.",

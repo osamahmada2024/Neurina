@@ -95,22 +95,28 @@ async def startup_event():
         logger.debug("Face restoration models failed to load - image enhancement will be disabled")
         console_feedback("Face restoration disabled")
     else:
-        console_feedback("Face restoration ready")
+        if face_restoration_service := preloader.get_model('face_restoration'):
+            console_feedback("Face restoration ready")
+        else:
+            console_feedback("Face restoration lazy")
     
     # Initialize image controller with loaded models
     stargan_models = preloader.get_model('stargan')
     face_restoration_service = preloader.get_model('face_restoration')
     wing_path = preloader.get_model('wing_path')
-    celeba_lm_path = Path(settings.CELEBA_LM_MEAN_PATH).expanduser()
-    if not celeba_lm_path.is_absolute():
-        celeba_lm_path = base_path / celeba_lm_path
+    celeba_lm_path = preloader.get_model('celeba_lm_path')
+    if not celeba_lm_path:
+        celeba_lm_path = Path(settings.CELEBA_LM_MEAN_PATH).expanduser()
+        if not celeba_lm_path.is_absolute():
+            celeba_lm_path = base_path / celeba_lm_path
+        celeba_lm_path = str(celeba_lm_path)
     
     image_controller.initialize_models(
         generator=stargan_models["generator"] if stargan_models else None,
         style_encoder=stargan_models["style_encoder"] if stargan_models else None,
         fan_model=stargan_models.get("fan_model") if stargan_models else None,
         wing_model_path=wing_path,
-        celeba_lm_path=str(celeba_lm_path) if celeba_lm_path.is_file() else None,
+        celeba_lm_path=celeba_lm_path if Path(celeba_lm_path).is_file() else None,
     )
     
     # Initialize postprocessors with preloaded face restoration service
