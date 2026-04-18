@@ -83,6 +83,10 @@ async def startup_event():
     preloader = ModelPreloader(str(base_path))
     loading_results = preloader.preload_all_models()
     loading_errors = preloader.get_loading_errors()
+
+    def _model_status(name: str, loaded: bool, detail: str | None = None) -> None:
+        suffix = f" ({detail})" if detail else ""
+        console_feedback(f"{name}: {'loaded' if loaded else 'not loaded'}{suffix}")
     
     # Check if all critical models loaded successfully
     if not loading_results.get('stargan_models', False):
@@ -121,6 +125,26 @@ async def startup_event():
     
     # Initialize postprocessors with preloaded face restoration service
     image_controller.initialize_postprocessors(str(base_path), face_restoration_service)
+
+    _model_status("StarGAN", stargan_models is not None)
+    _model_status("wing.ckpt", bool(wing_path), wing_path if wing_path else None)
+    _model_status(
+        "celeba_lm_mean.npz",
+        bool(celeba_lm_path) and Path(celeba_lm_path).is_file(),
+        celeba_lm_path if celeba_lm_path else None,
+    )
+    if face_restoration_service is not None:
+        _model_status("Face restoration", True, "preloaded")
+    else:
+        preload_enabled = getattr(preloader, "face_restoration_preload_attempted", False)
+        if preload_enabled:
+            _model_status(
+                "Face restoration",
+                False,
+                loading_errors.get("face_restoration_models", "preload failed"),
+            )
+        else:
+            _model_status("Face restoration", False, "lazy")
     
     # Initialize Cloudinary service
     cloudinary_enabled = False

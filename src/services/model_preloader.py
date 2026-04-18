@@ -28,6 +28,7 @@ class ModelPreloader:
         self.base_path = Path(base_path)
         self.loaded_models: Dict[str, any] = {}
         self.loading_errors: Dict[str, str] = {}
+        self.face_restoration_preload_attempted = False
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     def _resolve_configured_path(self, configured_path: str) -> Path:
@@ -53,6 +54,7 @@ class ModelPreloader:
         
         # 2. Load Face Restoration models (Hugging Face)
         if model_loading_settings.preload_face_restoration_on_startup:
+            self.face_restoration_preload_attempted = True
             results['face_restoration_models'] = self._preload_face_restoration_models()
         else:
             logger.info("Skipping face restoration preload at startup; models will load lazily on first use")
