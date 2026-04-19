@@ -11,8 +11,6 @@ Access the API at: http://localhost:8000/docs
 
 ## Setup & Configuration
 
-For detailed setup instructions, see [SETUP.md](SETUP.md).
-
 **Quick Config:**
 - Copy `src/.env.example` to `src/.env` and customize settings
 - Model weights download automatically on first use
