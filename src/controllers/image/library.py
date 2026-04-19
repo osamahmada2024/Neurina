@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime
 from functools import partial
+import hashlib
 import logging
 from pathlib import Path
 from typing import Mapping, Optional
