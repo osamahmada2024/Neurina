@@ -128,6 +128,13 @@ class ImageControllerBase:
                 )
         return self._public_reference_upload_executor
 
+    def shutdown_executors(self):
+        """Clean up thread executors to prevent resource leaks."""
+        with self._executor_init_lock:
+            if self._public_reference_upload_executor is not None:
+                self._public_reference_upload_executor.shutdown(wait=False)
+                self._public_reference_upload_executor = None
+
     @staticmethod
     def _coerce_object_id(value, field_name: str) -> ObjectId:
         if isinstance(value, ObjectId):

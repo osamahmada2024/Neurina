@@ -167,3 +167,10 @@ async def startup_event():
     
     await _sync_public_references_on_startup(base_path)
     console_feedback("Application ready")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Clean up resources on shutdown"""
+    logger.info("Shutting down...")
+    image_controller.shutdown_executors()
+    logger.info("Shutdown complete")

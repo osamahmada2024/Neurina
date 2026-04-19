@@ -8,6 +8,7 @@ import cv2
 import numpy as np
 import requests
 import torch
+import httpx
 
 from ...config import settings
 from ...helpers.celeba_face_align import (
@@ -170,12 +171,18 @@ class ImagePreprocessingMixin:
                     "padding_top": str(settings.FACE_MARGIN_TOP),
                     "padding_bottom": str(settings.FACE_MARGIN_BOTTOM),
                 }
-                response = requests.post(
-                    url,
-                    files=files,
-                    data=data,
-                    timeout=settings.FACE_CROP_TIMEOUT_SECONDS,
-                )
+                try:
+                    response = requests.post(
+                        url,
+                        files=files,
+                        data=data,
+                        timeout=settings.FACE_CROP_TIMEOUT_SECONDS,
+                    )
+                except requests.exceptions.Timeout:
+                    continue
+                except requests.exceptions.RequestException:
+                    continue
+
                 saw_reachable_service = True
                 if response.status_code == 422:
                     saw_no_face = True
