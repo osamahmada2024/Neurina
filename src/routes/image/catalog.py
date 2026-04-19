@@ -125,20 +125,12 @@ async def get_public_reference_images(
 
     count = len(images)
     
-    # Debug: Check if image_data exists
-    if images:
-        print(f"[DEBUG] First image data: {images[0].get('image_data')}")
-        print(f"[DEBUG] First image original: {images[0].get('image_data_original')}")
-        print(f"[DEBUG] First image library_key: {images[0].get('library_key')}")
-        print(f"[DEBUG] First image is_public: {images[0].get('is_public')}")
-    
     # Keep the public picker payload minimal: id only.
     formatted_images = [
         PublicReferenceDataResponse(
             _id=img.get("_id"),
-            cloudinary_url=img.get("image_data"),
+            processed_url=img.get("image_data"),
             original_image_url=img.get("image_data_original"),
-            processed_image_url=img.get("image_data"),
         )
         for img in images
     ]

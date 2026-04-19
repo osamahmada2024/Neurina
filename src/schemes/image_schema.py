@@ -112,9 +112,8 @@ class PublicReferenceDataResponse(BaseModel):
     model_config = ConfigDict(populate_by_name=True, arbitrary_types_allowed=True, exclude_none=True)
 
     id: str = Field(..., alias="_id")
-    cloudinary_url: Optional[str] = None
+    processed_url: Optional[str] = None
     original_image_url: Optional[str] = None
-    processed_image_url: Optional[str] = None
 
 
 class TranslationTaskResponse(BaseModel):
