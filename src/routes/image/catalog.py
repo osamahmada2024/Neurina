@@ -105,7 +105,7 @@ async def get_user_images(
     )
 
 
-@router.get("/public-references", response_model=PublicReferenceListResponse, response_model_exclude_none=True)
+@router.get("/public-references", response_model=PublicReferenceListResponse)
 async def get_public_reference_images(
     image_domain: Optional[str] = Query(None, description="male | female"),
     limit: int = Query(100, ge=1, le=100),
