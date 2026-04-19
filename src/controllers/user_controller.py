@@ -21,6 +21,7 @@ from ..services import (
 )
 from passlib.hash import bcrypt
 import hashlib
+import asyncio
 from ..models.Enums import Password_Exceeded, Providers
 from typing import Union
 from google.oauth2 import id_token
@@ -194,7 +195,8 @@ async def forget_password_controller(request : ForgotPasswordSchema):
             {"_id" : existing_user["_id"]},
             {"$set" : {"reset_token" : reset_token}}
         )
-
+# Send emil in background without ing
+       ayncio.create_task(s)
         await send_reset_email_async(request.email, reset_token, request.app_type)
 
     return {
