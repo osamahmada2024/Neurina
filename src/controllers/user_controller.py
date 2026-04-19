@@ -22,6 +22,7 @@ from ..services import (
 from passlib.hash import bcrypt
 import hashlib
 import asyncio
+import logging
 from ..models.Enums import Password_Exceeded, Providers
 from typing import Union
 from google.oauth2 import id_token
@@ -30,6 +31,16 @@ from ..config import settings
 from fastapi import Request, HTTPException
 from bson import ObjectId
 
+
+logger = logging.getLogger(__name__)
+
+
+async def send_reset_email_with_logging(email: str, reset_token: str, app_type: str):
+    try:
+        await send_reset_email_async(email, reset_token, app_type)
+        logger.info(f"Reset email successfully sent to {email}")
+    except Exception as e:
+        logger.error(f"Failed to send reset email to {email}: {str(e)}")
 
 
 async def sign_up_controller(user: UserSchema):
@@ -195,9 +206,10 @@ async def forget_password_controller(request : ForgotPasswordSchema):
             {"_id" : existing_user["_id"]},
             {"$set" : {"reset_token" : reset_token}}
         )
+        logger.info(f"Reset email sent to {request.email}")
 
         # Send email in background to avoid blocking response
-        asyncio.create_task(send_reset_email_async(request.email, reset_token, request.app_type))
+        asyncio.create_task(send_reset_email_with_logging(request.email, reset_token, request.app_type))
 
     return {
         "message" : "If the email exists in our system, you will receive a reset link shortly"
