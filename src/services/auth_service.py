@@ -151,6 +151,11 @@ def verify_reset_token(token: str):
 
 def send_reset_email(email: str, reset_token: str, app_type: str = "web") -> None:
 
+    # Check if SENDGRID_API_KEY is configured
+    if not settings.SENDGRID_API_KEY:
+        print("Warning: SENDGRID_API_KEY not configured, skipping email send")
+        return
+
     try:
         subject = "Reset Your Password"
         reset_link = settings.RESET_LINK_WEB if app_type == "web" else settings.RESET_LINK_MOBILE
@@ -184,7 +189,7 @@ def send_reset_email(email: str, reset_token: str, app_type: str = "web") -> Non
         response = sg.send(message)
 
     except Exception as e:
-        raise Exception("Failed to send email: " + str(e))
+        print(f"Failed to send email: {str(e)}")
 
 
 async def send_reset_email_async(email: str, reset_token: str, app_type: str = "web") -> None:
