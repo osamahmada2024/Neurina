@@ -84,6 +84,8 @@ class ImageUploadResponseSchema(BaseModel):
     status: str
     message: str
     faces_detected: int
+    original_image_url: Optional[str] = None
+    processed_image_url: Optional[str] = None
 
 
 # ================== Professional Response Schemas ==================
@@ -101,6 +103,8 @@ class ImageDataResponse(BaseModel):
     created_at: str
     size_bytes: Optional[int] = None
     cloudinary_public_id: Optional[str] = None
+    original_image_url: Optional[str] = None
+    processed_image_url: Optional[str] = None
 
 
 class PublicReferenceDataResponse(BaseModel):
@@ -172,6 +176,8 @@ class UploadCompleteResponse(BaseModel):
     filename: Optional[str] = None
     faces_detected: Optional[int] = None
     status: Optional[str] = None
+    original_image_url: Optional[str] = None
+    processed_image_url: Optional[str] = None
     created_at: Optional[str] = None
     error_code: Optional[str] = None
     details: Optional[dict] = None

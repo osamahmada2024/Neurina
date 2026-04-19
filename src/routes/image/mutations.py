@@ -42,6 +42,8 @@ async def upload_image(
             faces_detected=result.faces_detected,
             status=result.status,
             created_at=datetime.utcnow().isoformat(),
+            original_image_url=result.original_image_url,
+            processed_image_url=result.processed_image_url,
         )
     except ValueError as exc:
         return UploadCompleteResponse(

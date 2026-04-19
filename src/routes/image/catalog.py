@@ -90,6 +90,8 @@ async def get_user_images(
                 faces_detected=img.get("faces_detected", 0),
                 created_at=_to_iso_string(img.get("created_at")),
                 cloudinary_public_id=img.get("cloudinary_public_id_processed"),
+                original_image_url=img.get("image_data_original"),
+                processed_image_url=img.get("image_data"),
             )
         )
     
@@ -158,6 +160,8 @@ async def get_image(
         faces_detected=img.get("faces_detected", 0),
         created_at=_to_iso_string(img.get("created_at")),
         cloudinary_public_id=img.get("cloudinary_public_id_processed"),
+        original_image_url=img.get("image_data_original"),
+        processed_image_url=img.get("image_data"),
     )
 
 
