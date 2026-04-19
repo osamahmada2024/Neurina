@@ -129,7 +129,9 @@ async def get_public_reference_images(
     formatted_images = [
         PublicReferenceDataResponse(
             _id=img.get("_id"),
-            cloudinary_url=None,
+            cloudinary_url=img.get("image_data"),
+            original_image_url=img.get("image_data_original"),
+            processed_image_url=img.get("image_data"),
         )
         for img in images
     ]

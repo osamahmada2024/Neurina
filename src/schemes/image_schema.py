@@ -113,6 +113,8 @@ class PublicReferenceDataResponse(BaseModel):
 
     id: str = Field(..., alias="_id")
     cloudinary_url: Optional[str] = None
+    original_image_url: Optional[str] = None
+    processed_image_url: Optional[str] = None
 
 
 class TranslationTaskResponse(BaseModel):
