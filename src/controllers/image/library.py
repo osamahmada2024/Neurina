@@ -505,6 +505,28 @@ class ImageLibraryMixin:
                 raise ValueError(ImageErrorMessage.INVALID_FORMAT.value)
 
             contents = await file.read()
+            
+            # Calculate hash to detect duplicate images
+            image_hash = hashlib.sha256(contents).hexdigest()
+            
+            # Check if image already exists for this user
+            existing_image = await database["images"].find_one({
+                "user_id": user_id,
+                "image_type": image_type,
+                "image_hash": image_hash
+            })
+            
+            if existing_image:
+                return ImageUploadResponseSchema(
+                    image_id=str(existing_image["_id"]),
+                    status=existing_image.get("status", ImageStatus.PREPROCESSED.value),
+                    message="Image already exists. Returning existing image.",
+                    faces_detected=int(existing_image.get("faces_detected", 0)),
+                    original_image_url=existing_image.get("image_data_original"),
+                    processed_image_url=existing_image.get("image_data"),
+                    created_at=existing_image.get("created_at", datetime.utcnow()).isoformat() if isinstance(existing_image.get("created_at"), datetime) else existing_image.get("created_at"),
+                )
+            
             image_array = cv2.imdecode(np.frombuffer(contents, np.uint8), cv2.IMREAD_COLOR)
             if image_array is None:
                 raise ValueError(ImageErrorMessage.READ_ERROR.value)
@@ -520,6 +542,9 @@ class ImageLibraryMixin:
                 image_domain=image_domain,
                 original_image_bgr=original_image_bgr,  # Pass original image
             )
+            
+            # Add hash to document
+            image_doc["image_hash"] = image_hash
             
             result = await database["images"].insert_one(image_doc)
             
@@ -1105,4 +1130,5 @@ class ImageLibraryMixin:
                 "user_id": user_id,
             }
         )
+        return result.deleted_count > 0
         return result.deleted_count > 0
