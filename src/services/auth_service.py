@@ -12,6 +12,8 @@ import asyncio
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from ..helpers import render_email_template
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
 
 
 def create_access_token(data: dict) -> str:
