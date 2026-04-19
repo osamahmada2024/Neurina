@@ -161,14 +161,26 @@ def send_reset_email(email: str, reset_token: str, app_type: str = "web") -> Non
             "reset_url": reset_url
         })
 
-        message = Mail(
-            from_email=settings.SMTP_EMAIL,
-            to_emails=email,
-            subject=subject,
-            html_content=html_body
-        )
-
+        # Use SendGrid API directly
         sg = SendGridAPIClient(settings.SENDGRID_API_KEY)
+        message = {
+            "personalizations": [
+                {
+                    "to": [{"email": email}],
+                    "subject": subject
+                }
+            ],
+            "from": {
+                "email": settings.SMTP_EMAIL if settings.SMTP_EMAIL else "noreply@neurina.com"
+            },
+            "content": [
+                {
+                    "type": "text/html",
+                    "value": html_body
+                }
+            ]
+        }
+        
         response = sg.send(message)
 
     except Exception as e:
