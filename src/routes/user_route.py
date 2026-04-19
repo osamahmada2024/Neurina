@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Request
 from ..controllers import (
     sign_up_controller, 
     sign_in_controller, 
@@ -88,10 +88,10 @@ async def get_profile_user(token: str = Depends(oauth2_scheme)):
 
 
 @router.post("/forgot-password")
-async def forgot_password_user(request: ForgotPasswordSchema):
+async def forgot_password_user(request: ForgotPasswordSchema, background_tasks: BackgroundTasks):
 
     try:
-        return await forget_password_controller(request)
+        return await forget_password_controller(request, background_tasks)
     except Exception as e:
         raise HTTPException(status_code = 400, detail = str(e))
 

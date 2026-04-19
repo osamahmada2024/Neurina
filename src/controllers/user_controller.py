@@ -189,7 +189,7 @@ async def Github_login_controller(request: Request) :
     }
 
 
-async def forget_password_controller(request : ForgotPasswordSchema):
+async def forget_password_controller(request : ForgotPasswordSchema, background_tasks = None):
 
     existing_user = await database["users"].find_one({
         "email" : request.email
@@ -206,10 +206,13 @@ async def forget_password_controller(request : ForgotPasswordSchema):
             {"_id" : existing_user["_id"]},
             {"$set" : {"reset_token" : reset_token}}
         )
-        logger.info(f"Reset email sent to {request.email}")
 
-        # Send email in background to avoid blocking response
-        asyncio.create_task(send_reset_email_with_logging(request.email, reset_token, request.app_type))
+        # Use BackgroundTasks if available, otherwise fallback to asyncio.create_task
+        if background_tasks:
+            background_tasks.add_task(send_reset_email_async, request.email, reset_token, request.app_type)
+            logger.info(f"Reset email scheduled for {request.email}")
+        else:
+            asyncio.create_task(send_reset_email_with_logging(request.email, reset_token, request.app_type))
 
     return {
         "message" : "If the email exists in our system, you will receive a reset link shortly"
