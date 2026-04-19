@@ -501,17 +501,25 @@ class ImageLibraryMixin:
         image_domain: Optional[str] = None,
     ) -> ImageUploadResponseSchema:
         try:
+            print(f"[DEBUG] Starting upload for {filename}")
+            
             if not validate_image_file(filename):
                 raise ValueError(ImageErrorMessage.INVALID_FORMAT.value)
 
+            print(f"[DEBUG] Reading file...")
             contents = await file.read()
+            print(f"[DEBUG] File read, size: {len(contents)} bytes")
+            
+            print(f"[DEBUG] Decoding image...")
             image_array = cv2.imdecode(np.frombuffer(contents, np.uint8), cv2.IMREAD_COLOR)
             if image_array is None:
                 raise ValueError(ImageErrorMessage.READ_ERROR.value)
+            print(f"[DEBUG] Image decoded, shape: {image_array.shape}")
 
             # Store original image for uploaded images
             original_image_bgr = image_array.copy()
 
+            print(f"[DEBUG] Building image doc...")
             image_doc = self._build_processed_image_doc(
                 image_array=image_array,
                 user_id=user_id,
@@ -520,7 +528,11 @@ class ImageLibraryMixin:
                 image_domain=image_domain,
                 original_image_bgr=original_image_bgr,  # Pass original image
             )
+            print(f"[DEBUG] Image doc built, saving to DB...")
+            
             result = await database["images"].insert_one(image_doc)
+            print(f"[DEBUG] Image saved to DB, ID: {result.inserted_id}")
+            
             return ImageUploadResponseSchema(
                 image_id=str(result.inserted_id),
                 status=ImageStatus.PREPROCESSED.value,
@@ -533,6 +545,7 @@ class ImageLibraryMixin:
         except ValueError:
             raise
         except Exception as exc:
+            print(f"[DEBUG] Error in upload_and_process_image: {exc}")
             raise Exception(f"Error processing image: {exc}")
 
     async def import_public_reference_image(
