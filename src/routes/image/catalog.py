@@ -125,6 +125,11 @@ async def get_public_reference_images(
 
     count = len(images)
     
+    # Debug: Check if image_data exists
+    if images:
+        print(f"[DEBUG] First image data: {images[0].get('image_data')}")
+        print(f"[DEBUG] First image original: {images[0].get('image_data_original')}")
+    
     # Keep the public picker payload minimal: id only.
     formatted_images = [
         PublicReferenceDataResponse(
