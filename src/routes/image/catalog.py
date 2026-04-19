@@ -129,6 +129,8 @@ async def get_public_reference_images(
     if images:
         print(f"[DEBUG] First image data: {images[0].get('image_data')}")
         print(f"[DEBUG] First image original: {images[0].get('image_data_original')}")
+        print(f"[DEBUG] First image library_key: {images[0].get('library_key')}")
+        print(f"[DEBUG] First image is_public: {images[0].get('is_public')}")
     
     # Keep the public picker payload minimal: id only.
     formatted_images = [
