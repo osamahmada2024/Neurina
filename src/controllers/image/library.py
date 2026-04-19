@@ -1015,6 +1015,7 @@ class ImageLibraryMixin:
                     "_id": 1,
                     "image_domain": 1,
                     "image_data": 1,
+                    "image_data_original": 1,
                     "storage_type": 1,
                     "cloudinary_public_id_processed": 1,
                     "library_key": 1,
