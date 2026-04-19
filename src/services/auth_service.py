@@ -176,7 +176,7 @@ def send_reset_email(email: str, reset_token: str, app_type: str = "web") -> Non
                 }
             ],
             "from": {
-                "email": settings.SMTP_EMAIL if settings.SMTP_EMAIL else "noreply@neurina.com"
+                "email": settings.SMTP_EMAIL
             },
             "content": [
                 {
