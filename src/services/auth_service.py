@@ -159,18 +159,15 @@ def send_reset_email(email: str, reset_token: str, app_type: str = "web") -> Non
             "reset_url": reset_url
         })
 
-        message = MIMEMultipart("alternative")
-        message["Subject"] = subject
-        message["From"] = settings.SMTP_EMAIL
-        message["To"] = email
-        
-        html_part = MIMEText(html_body, "html")
-        message.attach(html_part)
+        message = Mail(
+            from_email=settings.SMTP_EMAIL,
+            to_emails=email,
+            subject=subject,
+            html_content=html_body
+        )
 
-        with smtplib.SMTP(settings.SMTP_SERVER, settings.SMTP_PORT) as server:
-            server.starttls()
-            server.login(settings.SMTP_EMAIL, settings.SMTP_PASSWORD)
-            server.sendmail(settings.SMTP_EMAIL, email, message.as_string())
+        sg = SendGridAPIClient(settings.SENDGRID_API_KEY)
+        response = sg.send(message)
 
     except Exception as e:
         raise Exception("Failed to send email: " + str(e))

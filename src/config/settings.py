@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     SMTP_PORT: int
     SMTP_EMAIL: str
     SMTP_PASSWORD: str
+    SENDGRID_API_KEY: str
     RESET_LINK_WEB: str
     RESET_LINK_MOBILE: str
     MAX_UPLOAD_SIZE: int = 104857600

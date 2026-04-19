@@ -57,6 +57,9 @@ opencv-python-headless==4.9.0.80
 # Media Storage (Cloudinary)
 cloudinary==1.39.1
 
+# Email Service (SendGrid)
+sendgrid==6.11.0
+
 # Utilities
 tqdm==4.66.4
 httpx==0.27.0
