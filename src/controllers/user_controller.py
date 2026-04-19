@@ -195,9 +195,9 @@ async def forget_password_controller(request : ForgotPasswordSchema):
             {"_id" : existing_user["_id"]},
             {"$set" : {"reset_token" : reset_token}}
         )
-# Send emil in background without ing
-       ayncio.create_task(s)
-        await send_reset_email_async(request.email, reset_token, request.app_type)
+
+        # Send email in background to avoid blocking response
+        asyncio.create_task(send_reset_email_async(request.email, reset_token, request.app_type))
 
     return {
         "message" : "If the email exists in our system, you will receive a reset link shortly"
