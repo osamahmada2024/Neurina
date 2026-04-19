@@ -19,11 +19,11 @@ class Settings(BaseSettings):
     GITHUB_CLIENT_SECRET: str
     GOOGLE_ANDROID_CLIENT_ID: str
     GOOGLE_IOS_CLIENT_ID: str
-    SMTP_SERVER: str
-    SMTP_PORT: int
-    SMTP_EMAIL: str
-    SMTP_PASSWORD: str
-    SENDGRID_API_KEY: str
+    SMTP_SERVER: str = ""
+    SMTP_PORT: int = 587
+    SMTP_EMAIL: str = ""
+    SMTP_PASSWORD: str = ""
+    SENDGRID_API_KEY: str = ""
     RESET_LINK_WEB: str
     RESET_LINK_MOBILE: str
     MAX_UPLOAD_SIZE: int = 104857600
