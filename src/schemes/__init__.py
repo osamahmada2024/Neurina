@@ -7,7 +7,8 @@ from .user_schema import (
     UserProfileSchema,
     ForgotPasswordSchema,
     ResetPasswordSchema,
-    EditProfileSchema
+    EditProfileSchema,
+    ContactUsSchema
 )
 from .image_schema import (
     ImageSchema,
