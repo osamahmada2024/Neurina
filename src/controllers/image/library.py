@@ -1147,8 +1147,16 @@ class ImageLibraryMixin:
         deleted_images = []
         skipped_images = []
 
-        # Helper to delete image if not public
-        async def _delete_if_not_public(image_id: str, image_type: str):
+        # Helper function to delete image if not public (not nested to avoid memory issues)
+        for image_id_key, image_type in [
+            ("translated_image_id", "translated"),
+            ("source_image_id", "source"),
+            ("reference_image_id", "reference")
+        ]:
+            image_id = task.get(image_id_key)
+            if not image_id:
+                continue
+
             image = await database["images"].find_one({
                 "_id": self._coerce_object_id(image_id, image_id),
             })
@@ -1169,18 +1177,6 @@ class ImageLibraryMixin:
                             "image_id": str(image["_id"]),
                             "type": image_type
                         })
-
-        # Delete translated image if exists
-        if task.get("translated_image_id"):
-            await _delete_if_not_public(task["translated_image_id"], "translated")
-
-        # Delete source image
-        if task.get("source_image_id"):
-            await _delete_if_not_public(task["source_image_id"], "source")
-
-        # Delete reference image
-        if task.get("reference_image_id"):
-            await _delete_if_not_public(task["reference_image_id"], "reference")
 
         # Delete the translation task
         await database["translation_tasks"].delete_one({
