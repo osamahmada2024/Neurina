@@ -6,7 +6,8 @@ from .auth_service import (
     verify_github_code,
     create_reset_token,
     verify_reset_token,
-    send_reset_email_async
+    send_reset_email_async,
+    send_contact_email_async
 )
 from .image_translation_service import (
     denormalize,
