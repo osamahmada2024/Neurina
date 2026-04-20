@@ -43,28 +43,61 @@
                                 You received a new message from <strong style="color: #8b5cf6;">{{name}}</strong> through the <strong style="color: #8b5cf6;">NeurinaXAI</strong> contact form.
                             </p>
 
-                            <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #faf8ff; border-radius: 20px; padding: 30px; border: 1px solid #f3e8ff;">
+                            <!-- ============================================== -->
+                            <!-- بداية الجزء الذي تم تعديله وتطوير تصميمه -->
+                            <!-- ============================================== -->
+                            <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 16px; border: 1px solid #e9d5ff; box-shadow: 0 4px 15px rgba(139, 92, 246, 0.05); overflow: hidden; text-align: left;">
+                                <!-- قسم معلومات الراسل -->
                                 <tr>
-                                    <td style="padding: 15px 0;">
-                                        <p style="color: #64748b; font-size: 14px; font-weight: 600; margin: 0 0 5px 0; text-transform: uppercase; letter-spacing: 1px;">
-                                            From:
-                                        </p>
-                                        <p style="color: #1e1b4b; font-size: 16px; margin: 0; font-weight: 500;">
-                                            {{name}} &lt;{{email}}&gt;
-                                        </p>
+                                    <td style="padding: 20px; background-color: #faf8ff; border-bottom: 1px solid #f3e8ff;">
+                                        <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                                            <tr>
+                                                <td width="48" valign="top">
+                                                    <table border="0" cellspacing="0" cellpadding="0">
+                                                        <tr>
+                                                            <td align="center" valign="middle" style="width: 48px; height: 48px; background: linear-gradient(135deg, #e9d5ff, #fbcfe8); border-radius: 50%; color: #6d28d9; font-weight: bold; font-size: 18px; font-family: Arial, sans-serif;">
+                                                                @
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                </td>
+                                                <td valign="middle" style="padding-left: 15px;">
+                                                    <p style="color: #8b5cf6; font-size: 12px; font-weight: 700; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 1px;">
+                                                        Sender Information
+                                                    </p>
+                                                    <p style="color: #1e1b4b; font-size: 16px; margin: 0; font-weight: 700;">
+                                                        {{name}}
+                                                    </p>
+                                                    <p style="margin: 4px 0 0 0; font-size: 14px;">
+                                                        <a href="mailto:{{email}}" style="color: #ec4899; text-decoration: none;">{{email}}</a>
+                                                    </p>
+                                                </td>
+                                            </tr>
+                                        </table>
                                     </td>
                                 </tr>
+                                <!-- قسم محتوى الرسالة -->
                                 <tr>
-                                    <td style="padding: 15px 0; border-top: 1px solid #e9d5ff;">
-                                        <p style="color: #64748b; font-size: 14px; font-weight: 600; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 1px;">
-                                            Message:
+                                    <td style="padding: 25px 20px;">
+                                        <p style="color: #8b5cf6; font-size: 12px; font-weight: 700; margin: 0 0 12px 0; text-transform: uppercase; letter-spacing: 1px;">
+                                            Message Content
                                         </p>
-                                        <p style="color: #1e1b4b; font-size: 16px; line-height: 1.8; margin: 0;">
-                                            {{message}}
-                                        </p>
+                                        <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                                            <tr>
+                                                <td style="border-left: 3px solid #c084fc; padding-left: 15px;">
+                                                    <p style="color: #334155; font-size: 15px; line-height: 1.8; margin: 0; font-style: italic;">
+                                                        "{{message}}"
+                                                    </p>
+                                                </td>
+                                            </tr>
+                                        </table>
                                     </td>
                                 </tr>
                             </table>
+                            <!-- ============================================== -->
+                            <!-- نهاية الجزء الذي تم تعديله -->
+                            <!-- ============================================== -->
+
                         </td>
                     </tr>
 
