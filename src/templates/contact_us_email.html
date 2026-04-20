@@ -53,15 +53,9 @@
                                                 <td width="48" valign="top">
                                                     <table border="0" cellspacing="0" cellpadding="0">
                                                         <tr>
-                                                            {% if profile_picture %}
-                                                            <td align="center" valign="middle" style="width: 48px; height: 48px; border-radius: 50%; overflow: hidden;">
-                                                                <img src="{{profile_picture}}" alt="{{name}}" style="width: 48px; height: 48px; border-radius: 50%; display: block; object-fit: cover;" />
+                                                            <td align="center" valign="middle" style="width: 48px; height: 48px; background: linear-gradient(135deg, #e9d5ff, #fbcfe8); border-radius: 50%; color: #6d28d9; font-weight: bold; font-size: 18px; font-family: Arial, sans-serif;">
+                                                                @
                                                             </td>
-                                                            {% else %}
-                                                            <td align="center" valign="middle" style="width: 48px; height: 48px; background: linear-gradient(135deg, #8b5cf6, #ec4899); border-radius: 50%; color: #ffffff; font-weight: bold; font-size: 20px; font-family: 'Segoe UI', Arial, sans-serif;">
-                                                                {{name[0]|upper}}
-                                                            </td>
-                                                            {% endif %}
                                                         </tr>
                                                     </table>
                                                 </td>
@@ -83,7 +77,7 @@
                                 <!-- قسم محتوى الرسالة -->
                                 <tr>
                                     <td style="padding: 25px 20px;">
-                                        <p style="color: #8b5cf6; font-size: 12px; font-weight: 700; margin: 0 0 12px 0; font-style: italic; text-transform: none;">
+                                        <p style="color: #8b5cf6; font-size: 12px; font-weight: 700; margin: 0 0 12px 0; font-style: italic;">
                                             Message Content
                                         </p>
                                         <table width="100%" border="0" cellspacing="0" cellpadding="0">
@@ -98,9 +92,7 @@
                                     </td>
                                 </tr>
                             </table>
-                            <!-- ============================================== -->
-                            <!-- نهاية الجزء الذي تم تعديله -->
-                            <!-- ============================================== -->
+
 
                         </td>
                     </tr>
