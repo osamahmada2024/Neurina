@@ -140,11 +140,9 @@ class ImageLibraryMixin:
             if display_image_bgr is None:
                 if self.face_restoration_service is not None and bool(settings.UPLOAD_SR_ENABLED):
                     try:
-                        # Use lower outscale for light model to reduce memory
-                        upload_outscale = 1.0 if bool(settings.SR_USE_LIGHT_MODEL) else float(settings.UPLOAD_SR_OUTSCALE)
                         image_for_storage_bgr = self.face_restoration_service.enhance(
                             model_image_bgr,
-                            outscale=upload_outscale,
+                            outscale=float(settings.UPLOAD_SR_OUTSCALE),
                         )
                         self._trace_image(
                             image_for_storage_bgr,
