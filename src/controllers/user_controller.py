@@ -300,6 +300,8 @@ async def contact_us_controller(request: ContactUsSchema, background_tasks=None)
         if user and user.get("profile_picture"):
             profile_picture = user["profile_picture"]
 
+        logger.info(f"Contact form from {request.email}, profile_picture: {profile_picture}")
+
         # Send email to admin
         if background_tasks:
             background_tasks.add_task(send_contact_email_async, request.name, request.email, request.message, profile_picture)
