@@ -198,7 +198,7 @@ async def send_reset_email_async(email: str, reset_token: str, app_type: str = "
     await loop.run_in_executor(None, send_reset_email, email, reset_token, app_type)
 
 
-def send_contact_email(name: str, email: str, message: str) -> None:
+def send_contact_email(name: str, email: str, message: str, profile_picture: str = None) -> None:
     """Send contact form email to admin."""
 
     # Check if SENDGRID_API_KEY is configured
@@ -208,12 +208,13 @@ def send_contact_email(name: str, email: str, message: str) -> None:
 
     try:
         subject = f"New Contact Message from {name}"
-        
+
         # Render email template
         html_body = render_email_template("contact_us_email.html", {
             "name": name,
             "email": email,
-            "message": message
+            "message": message,
+            "profile_picture": profile_picture
         })
 
         # Use SendGrid API directly
@@ -235,13 +236,13 @@ def send_contact_email(name: str, email: str, message: str) -> None:
                 }
             ]
         }
-        
+
         response = sg.send(message)
 
     except Exception as e:
         print(f"Failed to send contact email: {str(e)}")
 
 
-async def send_contact_email_async(name: str, email: str, message: str) -> None:
+async def send_contact_email_async(name: str, email: str, message: str, profile_picture: str = None) -> None:
     loop = asyncio.get_event_loop()
-    await loop.run_in_executor(None, send_contact_email, name, email, message)
+    await loop.run_in_executor(None, send_contact_email, name, email, message, profile_picture)

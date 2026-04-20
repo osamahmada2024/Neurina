@@ -55,9 +55,15 @@
                                                 <td width="48" valign="top">
                                                     <table border="0" cellspacing="0" cellpadding="0">
                                                         <tr>
-                                                            <td align="center" valign="middle" style="width: 48px; height: 48px; background: linear-gradient(135deg, #e9d5ff, #fbcfe8); border-radius: 50%; overflow: hidden;">
-                                                                <img src="https://ui-avatars.com/api/?name={{name}}&background=8b5cf6&color=fff&size=48" alt="{{name}}" style="width: 48px; height: 48px; border-radius: 50%; display: block;" />
+                                                            {% if profile_picture %}
+                                                            <td align="center" valign="middle" style="width: 48px; height: 48px; border-radius: 50%; overflow: hidden;">
+                                                                <img src="{{profile_picture}}" alt="{{name}}" style="width: 48px; height: 48px; border-radius: 50%; display: block; object-fit: cover;" />
                                                             </td>
+                                                            {% else %}
+                                                            <td align="center" valign="middle" style="width: 48px; height: 48px; background: linear-gradient(135deg, #8b5cf6, #ec4899); border-radius: 50%; color: #ffffff; font-weight: bold; font-size: 20px; font-family: 'Segoe UI', Arial, sans-serif;">
+                                                                {{name[0]|upper}}
+                                                            </td>
+                                                            {% endif %}
                                                         </tr>
                                                     </table>
                                                 </td>
@@ -65,7 +71,7 @@
                                                     <p style="color: #8b5cf6; font-size: 12px; font-weight: 700; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 1px;">
                                                         Sender Information
                                                     </p>
-                                                    <p style="color: #1e1b4b; font-size: 16px; margin: 0; font-weight: 700;">
+                                                    <p style="color: #1e1b4b; font-size: 18px; margin: 0; font-weight: 600; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
                                                         {{name}}
                                                     </p>
                                                     <p style="margin: 4px 0 0 0; font-size: 14px;">
@@ -79,7 +85,7 @@
                                 <!-- قسم محتوى الرسالة -->
                                 <tr>
                                     <td style="padding: 25px 20px;">
-                                        <p style="color: #8b5cf6; font-size: 12px; font-weight: 700; margin: 0 0 12px 0; text-transform: uppercase; letter-spacing: 1px;">
+                                        <p style="color: #8b5cf6; font-size: 12px; font-weight: 700; margin: 0 0 12px 0; font-style: italic;">
                                             Message Content
                                         </p>
                                         <table width="100%" border="0" cellspacing="0" cellpadding="0">

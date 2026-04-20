@@ -294,12 +294,18 @@ async def edit_profile_controller(token : str, request : EditProfileSchema):
 async def contact_us_controller(request: ContactUsSchema, background_tasks=None):
     """Handle contact form submissions and send email to admin."""
     try:
+        # Try to get user profile picture from database
+        profile_picture = None
+        user = await database["users"].find_one({"email": request.email})
+        if user and user.get("profile_picture"):
+            profile_picture = user["profile_picture"]
+
         # Send email to admin
         if background_tasks:
-            background_tasks.add_task(send_contact_email_async, request.name, request.email, request.message)
+            background_tasks.add_task(send_contact_email_async, request.name, request.email, request.message, profile_picture)
             logger.info(f"Contact email scheduled from {request.email}")
         else:
-            asyncio.create_task(send_contact_email_async(request.name, request.email, request.message))
+            asyncio.create_task(send_contact_email_async(request.name, request.email, request.message, profile_picture))
             logger.info(f"Contact email sent from {request.email}")
 
         return {
