@@ -7,4 +7,5 @@ from .user_controller import (
     reset_password_controller,
     sign_in_controller,
     sign_up_controller,
+    contact_us_controller,
 )
