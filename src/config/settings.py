@@ -51,6 +51,7 @@ class Settings(BaseSettings):
     FACE_MARGIN_BOTTOM: float = 0.14
     SR_ENABLED: bool = True
     SR_MODEL_NAME: str = "codeformer"
+    SR_USE_LIGHT_MODEL: bool = False
     SR_OUTSCALE: float = 2.0
     SR_TILE: int = 0
     SR_FACE_WEIGHT: float = 0.5

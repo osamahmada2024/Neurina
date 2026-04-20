@@ -95,17 +95,22 @@ class ImageControllerBase:
             logging.getLogger(__name__).debug("Using preloaded face restoration service")
         elif bool(settings.SR_ENABLED):
             try:
+                # Use lighter model if SR_USE_LIGHT_MODEL is enabled
+                model_name = "gfpgan_v1.4" if bool(settings.SR_USE_LIGHT_MODEL) else settings.SR_MODEL_NAME
+                # Use lower outscale for light model to reduce memory
+                outscale = 1.0 if bool(settings.SR_USE_LIGHT_MODEL) else float(settings.SR_OUTSCALE)
+                
                 self.face_restoration_service = FaceRestorationService(
                     base_path=base_path,
-                    model_name=settings.SR_MODEL_NAME,
-                    outscale=float(settings.SR_OUTSCALE),
+                    model_name=model_name,
+                    outscale=outscale,
                     tile=int(settings.SR_TILE),
                     face_weight=float(settings.SR_FACE_WEIGHT),
                     codeformer_fidelity=float(settings.SR_CODEFORMER_FIDELITY),
                 )
                 import logging
                 logging.getLogger(__name__).debug(
-                    f"Super-resolution ready: model={settings.SR_MODEL_NAME}, outscale={settings.SR_OUTSCALE}"
+                    f"Super-resolution ready: model={model_name}, outscale={outscale}, light_mode={settings.SR_USE_LIGHT_MODEL}"
                 )
             except Exception as exc:
                 import logging
