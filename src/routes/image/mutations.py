@@ -138,29 +138,3 @@ async def delete_image(
             message=f"Delete failed: {str(exc)}",
             data={"error": str(exc)},
         )
-
-
-@router.delete("/project/{task_id}", response_model=SuccessResponse, response_model_exclude_none=True)
-async def delete_project(
-    task_id: str,
-    current_user: ObjectId = Depends(get_current_user),
-) -> SuccessResponse:
-    try:
-        result = await image_controller.delete_project(task_id, current_user)
-        return SuccessResponse(
-            success=True,
-            message=result["message"],
-            data=result,
-        )
-    except ValueError as exc:
-        return SuccessResponse(
-            success=False,
-            message=str(exc),
-            data={"task_id": task_id},
-        )
-    except Exception as exc:
-        return SuccessResponse(
-            success=False,
-            message=f"Delete project failed: {str(exc)}",
-            data={"error": str(exc)},
-        )

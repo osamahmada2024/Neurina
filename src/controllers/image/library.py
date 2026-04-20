@@ -127,16 +127,10 @@ class ImageLibraryMixin:
             )
 
             if domain_label is None:
-                # Skip domain inference for reference images to avoid OOM
-                # Require explicit image_domain parameter instead
-                if image_type == ImageType.SOURCE.value:
-                    inferred_label = self._infer_domain_label_from_face(model_image_bgr)
-                    if inferred_label is not None:
-                        domain_label = int(inferred_label)
-                        image_domain = self.label_to_domain.get(domain_label)
-                else:
-                    # For reference images, require explicit image_domain
-                    pass
+                inferred_label = self._infer_domain_label_from_face(model_image_bgr)
+                if inferred_label is not None:
+                    domain_label = int(inferred_label)
+                    image_domain = self.label_to_domain.get(domain_label)
 
             image_for_storage_bgr = (
                 display_image_bgr.copy()
