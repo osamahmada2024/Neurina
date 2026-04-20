@@ -95,3 +95,9 @@ class ResetPasswordSchema(BaseModel):
 class EditProfileSchema(BaseModel):
     name: Optional[str] = Field(None, min_length = 2)
     profile_picture: Optional[str] = None
+
+
+class ContactUsSchema(BaseModel):
+    name: str = Field(..., min_length=2)
+    email: EmailStr
+    message: str = Field(..., min_length=10)

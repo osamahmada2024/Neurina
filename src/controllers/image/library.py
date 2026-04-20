@@ -1132,4 +1132,65 @@ class ImageLibraryMixin:
             }
         )
         return result.deleted_count > 0
-        return result.deleted_count > 0
+
+    async def delete_project(self, task_id: str, user_id: ObjectId) -> dict:
+        """Delete a translation task and its associated images (excluding public images)."""
+        # Get the translation task
+        task = await database["translation_tasks"].find_one({
+            "_id": self._coerce_object_id(task_id, "task_id"),
+            "user_id": user_id,
+        })
+
+        if not task:
+            raise ValueError("Translation task not found")
+
+        deleted_images = []
+        skipped_images = []
+
+        # Helper to delete image if not public
+        async def _delete_if_not_public(image_id: str, image_type: str):
+            image = await database["images"].find_one({
+                "_id": self._coerce_object_id(image_id, image_id),
+            })
+            if image:
+                if image.get("is_public", False):
+                    skipped_images.append({
+                        "image_id": str(image["_id"]),
+                        "type": image_type,
+                        "reason": "public_image"
+                    })
+                else:
+                    result = await database["images"].delete_one({
+                        "_id": self._coerce_object_id(image_id, image_id),
+                        "user_id": user_id,
+                    })
+                    if result.deleted_count > 0:
+                        deleted_images.append({
+                            "image_id": str(image["_id"]),
+                            "type": image_type
+                        })
+
+        # Delete translated image if exists
+        if task.get("translated_image_id"):
+            await _delete_if_not_public(task["translated_image_id"], "translated")
+
+        # Delete source image
+        if task.get("source_image_id"):
+            await _delete_if_not_public(task["source_image_id"], "source")
+
+        # Delete reference image
+        if task.get("reference_image_id"):
+            await _delete_if_not_public(task["reference_image_id"], "reference")
+
+        # Delete the translation task
+        await database["translation_tasks"].delete_one({
+            "_id": self._coerce_object_id(task_id, "task_id"),
+            "user_id": user_id,
+        })
+
+        return {
+            "task_id": task_id,
+            "deleted_images": deleted_images,
+            "skipped_images": skipped_images,
+            "message": f"Deleted {len(deleted_images)} images, skipped {len(skipped_images)} public images"
+        }

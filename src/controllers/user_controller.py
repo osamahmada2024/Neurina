@@ -7,7 +7,8 @@ from ..schemes.user_schema import (
     ForgotPasswordSchema,
     ResetPasswordSchema,
     EditProfileSchema,
-    UserProfileSchema
+    UserProfileSchema,
+    ContactUsSchema
 )
 from ..services import (
     create_access_token,
@@ -17,7 +18,8 @@ from ..services import (
     verify_github_code,
     create_reset_token,
     verify_reset_token,
-    send_reset_email_async
+    send_reset_email_async,
+    send_contact_email_async
 )
 from passlib.hash import bcrypt
 import hashlib
@@ -287,4 +289,23 @@ async def edit_profile_controller(token : str, request : EditProfileSchema):
     })
 
     return UserProfileSchema(**updated_user)
+
+
+async def contact_us_controller(request: ContactUsSchema, background_tasks=None):
+    """Handle contact form submissions and send email to admin."""
+    try:
+        # Send email to admin
+        if background_tasks:
+            background_tasks.add_task(send_contact_email_async, request.name, request.email, request.message)
+            logger.info(f"Contact email scheduled from {request.email}")
+        else:
+            asyncio.create_task(send_contact_email_async(request.name, request.email, request.message))
+            logger.info(f"Contact email sent from {request.email}")
+
+        return {
+            "message": "Thank you for contacting us. We will get back to you shortly."
+        }
+    except Exception as e:
+        logger.error(f"Failed to process contact form: {str(e)}")
+        raise Exception("Failed to submit contact form. Please try again later.")
 

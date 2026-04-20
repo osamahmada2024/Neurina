@@ -6,7 +6,8 @@ from ..controllers import (
     Google_login_controller,
     forget_password_controller,
     reset_password_controller,
-    edit_profile_controller
+    edit_profile_controller,
+    contact_us_controller
 )
 from ..schemes import (
     UserSchema,
@@ -16,6 +17,7 @@ from ..schemes import (
     ForgotPasswordSchema,
     ResetPasswordSchema,
     EditProfileSchema,
+    ContactUsSchema,
 )
 from ..services import verify_access_token
 from fastapi.security import OAuth2PasswordBearer
@@ -113,4 +115,13 @@ async def edit_profile_user(request: EditProfileSchema, token: str = Depends(oau
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code = 500, detail = f"Failed to update profile: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to update profile: {str(e)}")
+
+
+@router.post("/contact-us")
+async def contact_us_user(request: ContactUsSchema, background_tasks: BackgroundTasks):
+
+    try:
+        return await contact_us_controller(request, background_tasks)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
