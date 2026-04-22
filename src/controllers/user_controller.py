@@ -256,7 +256,7 @@ async def reset_password_controller(request : ResetPasswordSchema):
     }
 
 
-async def edit_profile_controller(token : str, request : EditProfileSchema):
+async def edit_profile_controller(token : str, request : EditProfileSchema, profile_picture_file = None):
 
     payload = verify_access_token(token)
 
@@ -275,8 +275,26 @@ async def edit_profile_controller(token : str, request : EditProfileSchema):
     if request.name:
         update_data["name"] = request.name
 
+    # Handle profile picture from URL
     if request.profile_picture:
         update_data["profile_picture"] = request.profile_picture
+
+    # Handle profile picture from file upload
+    if profile_picture_file:
+        # Upload file to Cloudinary
+        contents = await profile_picture_file.read()
+
+        try:
+            from ...controllers.image_controller import image_controller
+            upload_result = image_controller.cloudinary_service.upload_profile_picture(
+                image_data=contents,
+                filename=profile_picture_file.filename,
+                user_id=payload["user_id"]
+            )
+            update_data["profile_picture"] = upload_result['secure_url']
+        except Exception as e:
+            logger.error(f"Failed to upload profile picture to Cloudinary: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to upload profile picture")
 
     if update_data:
         await database["users"].update_one(
