@@ -65,6 +65,25 @@ class Settings(BaseSettings):
     TRANSLATION_MIN_GRADIENT_P90: float = 110.0
     TRANSLATION_MIN_CONTRAST_STD: float = 55.0
 
+    
+    # Agent config
+    OLLAMA_BASE_URL: str
+    Search_Secret_API_KEY: str
+    SUPERVISOR_MODEL: str
+    QUERY_MODEL: str 
+    REASONING_MODEL: str
+    MAX_REFERENCE_CANDIDATES: int 
+    REQUEST_TIMEOUT: int
+    VERIFY_TIMEOUT: int
+    Backend_API_URL: str
+    MAX_RETRIES: int = 3
+
+    # Hugging Face Hub (RAG embeddings download / rate limits)
+    HF_TOKEN: str = ""
+    RAG_EMBEDDING_MODEL: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+    
     model_config = SettingsConfigDict(env_file="src/.env", extra="ignore")
+
+
 
 settings = Settings()

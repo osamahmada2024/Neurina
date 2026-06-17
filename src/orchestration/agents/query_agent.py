@@ -12,24 +12,33 @@ class QueryAgent(BaseAgent):
         )
 
     async def think_and_act(self, state: AgentState) -> AgentState:
-        user_input = state.get("user_input", "").strip()
+        user_input = state.get("style_description") or state.get("user_input", "").strip()
 
         if not user_input:
-            raise ValueError("user_input is required in state")
+            raise ValueError("user_input or style_description is required in state")
 
-        primary_query = await self._generate_query(user_input)
+        primary_query = await self._generate_query(state)
         state["generated_search_query"] = primary_query
 
         self.logger.log_tool_call(
             "QueryGeneration",
-            {"user_input": user_input},
+            {"user_input": user_input, "retry_count": state.get("retry_count", 0)},
             output_summary={"query": primary_query},
         )
 
         return state
 
-    async def _generate_query(self, user_input: str) -> str:
-        prompt = f"""Convert to search query (max 10 words): "{user_input}"
+    async def _generate_query(self, state: AgentState) -> str:
+        user_input = state.get("style_description") or state.get("user_input", "")
+        retry_count = state.get("retry_count", 0)
+        
+        if retry_count > 0:
+            prompt = f"""You previously searched for "{state.get('generated_search_query')}" based on "{user_input}" but no good images were found.
+Generate a NEW, DIFFERENT search query (max 10 words) that might yield better results.
+Focus on: celebrity names, clear styles, simple adjectives.
+Return ONLY the query."""
+        else:
+            prompt = f"""Convert to search query (max 10 words): "{user_input}"
 Focus: celebrity names, styles, adjectives.
 Return ONLY the query."""
 

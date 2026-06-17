@@ -1,8 +1,15 @@
 from motor.motor_asyncio import AsyncIOMotorClient
 from ...config import settings 
 
-client = AsyncIOMotorClient(settings.MONGO_URI)
-database = client[settings.DB_NAME]
+class DatabaseProxy:
+    client: AsyncIOMotorClient = None
+
+    def __getitem__(self, name):
+        if self.client is None:
+            self.client = AsyncIOMotorClient(settings.MONGO_URI)
+        return self.client[settings.DB_NAME][name]
+
+database = DatabaseProxy()
 
 async def init_db():
     """Initialize database collections and indexes"""
@@ -30,3 +37,7 @@ async def init_db():
     await database["translation_tasks"].create_index("reference_image_id")
     await database["translation_tasks"].create_index([("user_id", 1), ("status", 1)])
 
+    # Agent Sessions collection
+    await database["agent_sessions"].create_index("user_id")
+    await database["agent_sessions"].create_index("session_id", unique=True)
+    await database["agent_sessions"].create_index("status")

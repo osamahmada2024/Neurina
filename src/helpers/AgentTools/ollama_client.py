@@ -9,8 +9,10 @@ def ask_ollama(model: str, prompt: str) -> str:
         "stream": False,
         "temperature": 0.7
     }
-    resp = requests.post(url, json=payload, timeout=120)
-
-    resp.raise_for_status()
-
-    return resp.json().get("response", "").strip()
+    try:
+        resp = requests.post(url, json=payload, timeout=120)
+        resp.raise_for_status()
+        return resp.json().get("response", "").strip()
+    except requests.exceptions.RequestException as e:
+        print(f"Ollama API Error: {e}")
+        return ""

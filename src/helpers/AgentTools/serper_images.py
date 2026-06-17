@@ -4,10 +4,13 @@ from typing import List
 from ...config import settings
 
 
-def search_images(query: str, num_results: int = 10, retry_count: int = 3) -> List[str]:
+import asyncio
+
+async def search_images(query: str, num_results: int = 10, retry_count: int = 3) -> List[str]:
     for attempt in range(retry_count):
         try:
-            resp = requests.get(
+            resp = await asyncio.to_thread(
+                requests.get,
                 "https://google.serper.dev/images",
                 headers={"X-API-KEY": settings.Search_Secret_API_KEY},
                 params={"q": query, "num": num_results},
@@ -23,25 +26,25 @@ def search_images(query: str, num_results: int = 10, retry_count: int = 3) -> Li
         except requests.exceptions.Timeout as e:
             print(f"Serper API timeout (attempt {attempt + 1}/{retry_count}): {e}")
             if attempt < retry_count - 1:
-                time.sleep(2 ** attempt)  # Exponential backoff
+                await asyncio.sleep(2 ** attempt)  # Exponential backoff
             continue
 
         except requests.exceptions.HTTPError as e:
             if resp.status_code == 429:  # Rate limited
                 print(f"Serper API rate limited (attempt {attempt + 1}/{retry_count})")
                 if attempt < retry_count - 1:
-                    time.sleep(5 * (2 ** attempt))  # Exponential backoff, longer for rate limit
+                    await asyncio.sleep(5 * (2 ** attempt))  # Exponential backoff, longer for rate limit
                 continue
             else:
                 print(f"Serper API HTTP error (attempt {attempt + 1}/{retry_count}): {e}")
                 if attempt < retry_count - 1:
-                    time.sleep(2 ** attempt)
+                    await asyncio.sleep(2 ** attempt)
                 continue
 
         except Exception as e:
             print(f"Serper API error (attempt {attempt + 1}/{retry_count}): {e}")
             if attempt < retry_count - 1:
-                time.sleep(2 ** attempt)
+                await asyncio.sleep(2 ** attempt)
             continue
 
     # All retries exhausted

@@ -21,12 +21,19 @@ class ImageDownloadService:
 
     @staticmethod
     def download_url_bytes(image_url: str) -> bytes:
-        try:
-            response = requests.get(image_url, timeout=30)
-            response.raise_for_status()
-            return response.content
-        except Exception as exc:
-            raise HTTPException(status_code=400, detail=f"Error downloading image: {str(exc)}")
+        import time
+        max_retries = 3
+        last_exception = None
+        for attempt in range(max_retries):
+            try:
+                response = requests.get(image_url, timeout=30)
+                response.raise_for_status()
+                return response.content
+            except Exception as exc:
+                last_exception = exc
+                if attempt < max_retries - 1:
+                    time.sleep(2 ** attempt)
+        raise HTTPException(status_code=400, detail=f"Error downloading image after {max_retries} attempts: {str(last_exception)}")
 
     @staticmethod
     def decode_base64_image(image_data: str) -> np.ndarray:

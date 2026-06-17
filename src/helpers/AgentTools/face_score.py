@@ -148,7 +148,7 @@ def score_image_quality(image_url: str) -> Dict[str, Any]:
     blur_score = compute_blur_score(image_bgr)
 
     # Gate criteria: exactly 1 face + high quality score
-    quality_threshold = float(settings.get("QUALITY_GATE_THRESHOLD", 0.7))
+    quality_threshold = float(getattr(settings, "QUALITY_GATE_THRESHOLD", 0.7))
     passes_gate = (face_count == 1) and (quality_score >= quality_threshold)
 
     return {
@@ -162,11 +162,18 @@ def score_image_quality(image_url: str) -> Dict[str, Any]:
 
 
 def batch_score_images(image_urls: list) -> list:
+    import concurrent.futures
     results = []
 
-    for url in image_urls:
-        score_dict = score_image_quality(url)
-        results.append((url, score_dict))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        future_to_url = {executor.submit(score_image_quality, url): url for url in image_urls}
+        for future in concurrent.futures.as_completed(future_to_url):
+            url = future_to_url[future]
+            try:
+                score_dict = future.result()
+                results.append((url, score_dict))
+            except Exception as exc:
+                print(f"Error scoring {url}: {exc}")
 
     results.sort(
         key=lambda x: (x[1]["quality_score"], x[1]["blur_score"]),
