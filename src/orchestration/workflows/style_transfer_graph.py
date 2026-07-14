@@ -1,24 +1,45 @@
 from __future__ import annotations
 
 import json
+import threading
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Any, AsyncIterator, Dict, Optional
 
 from bson import ObjectId
 
-from ...helpers.AgentTools.image_routes_tool import ImageRoutesTool
 from ...helpers.AgentTools.logger import AgentLogger
 from ...models.Enums import ImageType
 from ...models.database.database import database
+from ...schemes.api_models import AgentExecutionInput, AgentRequestInput
 from ...schemes.agent_state import AgentState
-from ..agents import SupervisorAgent
+from ...services.agent_image_service import AgentImageService, agent_image_service
+from ...helpers.AgentTools.ollama_client import OllamaClient
 from ..agents.reference_selector_agent import ReferenceSelectorAgent
 
 
+class LegacySessionMigrationRequired(PermissionError):
+    """Raised when a legacy session has no trustworthy ownership metadata."""
+
+
 class StyleTransferGraph:
-    def __init__(self) -> None:
-        self.supervisor_agent = SupervisorAgent()
-        self.reference_selector_agent = ReferenceSelectorAgent()
+    _session_locks: dict[tuple[str, str], Any] = {}
+    _session_locks_guard = threading.Lock()
+
+    def __init__(
+        self,
+        image_service: AgentImageService | None = None,
+        ollama_client: OllamaClient | None = None,
+    ) -> None:
+        from ..agents.supervisor_agent import SupervisorAgent
+
+        custom_image_service = image_service
+        self.image_service = image_service or agent_image_service
+        self.supervisor_agent = SupervisorAgent(
+            image_service=custom_image_service,
+            ollama_client=ollama_client,
+        )
+        self.reference_selector_agent = ReferenceSelectorAgent(image_service=self.image_service)
         self.logger = AgentLogger()
         self.collection = database["agent_sessions"]
 
@@ -68,21 +89,75 @@ class StyleTransferGraph:
         merged = {**defaults, **state}
         merged.setdefault("chat_history", [])
         merged.setdefault("errors", [])
+        merged["auth_token"] = ""
         return merged  # type: ignore[return-value]
+
+    @classmethod
+    def _get_session_lock(cls, user_id: ObjectId, session_id: str):
+        key = (str(user_id), session_id)
+        with cls._session_locks_guard:
+            lock = cls._session_locks.get(key)
+            if lock is None:
+                import asyncio
+
+                lock = asyncio.Lock()
+                cls._session_locks[key] = lock
+            return lock
+
+    @classmethod
+    @asynccontextmanager
+    async def _locked_session(cls, user_id: ObjectId, session_id: str):
+        lock = cls._get_session_lock(user_id, session_id)
+        async with lock:
+            yield
+
+    @staticmethod
+    def _state_for_persistence(state: AgentState) -> dict:
+        persisted = dict(state)
+        persisted.pop("auth_token", None)
+        return persisted
 
     async def _load_session(
         self,
         session_id: str,
         user_id: ObjectId,
     ) -> tuple[Optional[dict], Optional[AgentState]]:
-        doc = await self.collection.find_one({"session_id": session_id})
-        if not doc:
-            return None, None
-        owner = str(doc.get("user_id", ""))
-        if owner and owner != str(user_id):
-            raise PermissionError("Session does not belong to this user")
-        state = self._ensure_state_shape(doc.get("state") or {})
-        return doc, state
+        user_key = str(user_id)
+        doc = await self.collection.find_one(
+            {
+                "session_id": session_id,
+                "$or": [{"user_id": user_key}, {"user_id": user_id}],
+            }
+        )
+
+        if doc:
+            if doc.get("user_id") != user_key:
+                await self.collection.update_one(
+                    {"_id": doc["_id"]},
+                    {"$set": {"user_id": user_key}},
+                )
+                doc["user_id"] = user_key
+            state = self._ensure_state_shape(doc.get("state") or {})
+            state["user_id"] = user_key
+            state["session_id"] = session_id
+            return doc, state
+
+        legacy_doc = await self.collection.find_one(
+            {
+                "session_id": session_id,
+                "$or": [
+                    {"user_id": {"$exists": False}},
+                    {"user_id": None},
+                    {"user_id": ""},
+                ],
+            }
+        )
+        if legacy_doc:
+            raise LegacySessionMigrationRequired(
+                "Legacy session has no verified owner. Run the explicit migration "
+                "procedure before using this session."
+            )
+        return None, None
 
     async def _save_session(
         self,
@@ -92,15 +167,17 @@ class StyleTransferGraph:
         status: str,
     ) -> None:
         await self.collection.update_one(
-            {"session_id": session_id},
+            {"session_id": session_id, "user_id": str(user_id)},
             {
                 "$set": {
                     "session_id": session_id,
                     "user_id": str(user_id),
-                    "state": state,
+                    "state": self._state_for_persistence(state),
                     "status": status,
                     "updated_at": datetime.now(timezone.utc),
-                }
+                },
+                "$inc": {"version": 1},
+                "$setOnInsert": {"created_at": datetime.now(timezone.utc)},
             },
             upsert=True,
         )
@@ -133,11 +210,20 @@ class StyleTransferGraph:
         doc = await database["images"].find_one(
             {
                 "_id": ObjectId(rid),
-                "user_id": user_id,
                 "image_type": ImageType.REFERENCE.value,
+                "$or": [{"user_id": user_id}, {"is_public": True}],
             }
         )
         return doc is not None
+
+    def _failure_response(self, status: str, message: str, error: str) -> Dict[str, Any]:
+        return {
+            "success": False,
+            "status": status,
+            "message": message,
+            "candidate_images": {},
+            "errors": [error],
+        }
 
     def _build_response(self, final_state: AgentState, status: str, message: str) -> Dict[str, Any]:
         return {
@@ -160,7 +246,49 @@ class StyleTransferGraph:
         auth_token: str,
         source_image_id: Optional[str] = None,
     ) -> Dict[str, Any]:
-        _, existing = await self._load_session(session_id, user_id)
+        validated = AgentExecutionInput(
+            user_id=user_id,
+            session_id=session_id,
+            user_input=user_input,
+            auth_token=auth_token,
+            source_image_id=source_image_id,
+        )
+        user_id = validated.user_id
+        session_id = validated.session_id
+        user_input = validated.user_input
+        auth_token = validated.auth_token
+        source_image_id = validated.source_image_id
+
+        async with self._locked_session(user_id, session_id):
+            return await self._execute_locked(
+                user_id=user_id,
+                session_id=session_id,
+                user_input=user_input,
+                auth_token=auth_token,
+                source_image_id=source_image_id,
+            )
+
+    async def _execute_locked(
+        self,
+        user_id: ObjectId,
+        session_id: str,
+        user_input: str,
+        auth_token: str,
+        source_image_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        try:
+            _, existing = await self._load_session(session_id, user_id)
+        except LegacySessionMigrationRequired as exc:
+            self.logger.log_step(
+                "StyleTransferGraph_LEGACY_MIGRATION_REQUIRED",
+                {"user_id": str(user_id), "session_id": session_id},
+                level="WARNING",
+            )
+            return self._failure_response(
+                "FAILED",
+                "This legacy session requires an explicit migration before it can be used.",
+                str(exc),
+            )
 
         if existing is not None:
             state = existing
@@ -211,7 +339,57 @@ class StyleTransferGraph:
         source_image_id: Optional[str] = None,
     ) -> AsyncIterator[str]:
         """Server-Sent Events stream of agent steps and final session result."""
-        _, existing = await self._load_session(session_id, user_id)
+        validated = AgentExecutionInput(
+            user_id=user_id,
+            session_id=session_id,
+            user_input=user_input,
+            auth_token=auth_token,
+            source_image_id=source_image_id,
+        )
+        user_id = validated.user_id
+        session_id = validated.session_id
+        user_input = validated.user_input
+        auth_token = validated.auth_token
+        source_image_id = validated.source_image_id
+
+        async with self._locked_session(user_id, session_id):
+            async for chunk in self._execute_stream_locked(
+                user_id=user_id,
+                session_id=session_id,
+                user_input=user_input,
+                auth_token=auth_token,
+                source_image_id=source_image_id,
+            ):
+                yield chunk
+
+    async def _execute_stream_locked(
+        self,
+        user_id: ObjectId,
+        session_id: str,
+        user_input: str,
+        auth_token: str,
+        source_image_id: Optional[str] = None,
+    ) -> AsyncIterator[str]:
+        try:
+            _, existing = await self._load_session(session_id, user_id)
+        except LegacySessionMigrationRequired as exc:
+            self.logger.log_step(
+                "StyleTransferGraph_STREAM_LEGACY_MIGRATION_REQUIRED",
+                {"user_id": str(user_id), "session_id": session_id},
+                level="WARNING",
+            )
+            yield self._sse(
+                {
+                    "step": "error",
+                    "message": "This legacy session requires an explicit migration before it can be used.",
+                    "data": self._failure_response(
+                        "FAILED",
+                        "This legacy session requires an explicit migration before it can be used.",
+                        str(exc),
+                    ),
+                }
+            )
+            return
 
         if existing is not None:
             state = existing
@@ -231,10 +409,7 @@ class StyleTransferGraph:
         state["chat_history"].append({"role": "user", "content": user_input})
         final_state: AgentState = state
 
-        def _sse(payload: dict) -> str:
-            return f"data: {json.dumps(payload, ensure_ascii=False, default=str)}\n\n"
-
-        yield _sse({"step": "session_start", "session_id": session_id})
+        yield self._sse({"step": "session_start", "session_id": session_id})
 
         try:
             async for event in self.supervisor_agent.astream_events(state):
@@ -244,13 +419,13 @@ class StyleTransferGraph:
                 if etype == "on_custom_event":
                     data = event.get("data")
                     if isinstance(data, dict):
-                        yield _sse(data)
+                        yield self._sse(data)
                     continue
 
                 if etype == "on_chain_stream":
                     chunk = event.get("data", {}).get("chunk")
                     if isinstance(chunk, dict):
-                        yield _sse({"step": "node_update", "node": name, "data": chunk})
+                        yield self._sse({"step": "node_update", "node": name, "data": chunk})
                     continue
 
                 if etype == "on_chain_end" and event.get("data", {}).get("output"):
@@ -265,7 +440,7 @@ class StyleTransferGraph:
                         "await_selection",
                     ):
                         final_state = output
-                        yield _sse(
+                        yield self._sse(
                             {
                                 "step": "node_complete",
                                 "node": name,
@@ -279,7 +454,7 @@ class StyleTransferGraph:
             await self._save_session(session_id, user_id, final_state, status)
 
             result = self._build_response(final_state, status, message)
-            yield _sse({"step": "complete", "data": result})
+            yield self._sse({"step": "complete", "data": result})
 
         except Exception as e:
             self.logger.log_step(
@@ -287,7 +462,7 @@ class StyleTransferGraph:
                 {"error": str(e), "user_id": str(user_id)},
                 level="ERROR",
             )
-            yield _sse(
+            yield self._sse(
                 {
                     "step": "error",
                     "message": str(e),
@@ -309,11 +484,55 @@ class StyleTransferGraph:
         auth_token: str,
         style_description: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """
-        Resume an existing chat session: validate source, resolve reference (candidate UUID
-        or uploaded reference id), upload if needed, then call /translate.
-        """
-        _, state = await self._load_session(session_id, user_id)
+        validated = AgentRequestInput(
+            user_id=user_id,
+            session_id=session_id,
+            source_image_id=source_image_id,
+            reference_image_id=reference_image_id,
+            auth_token=auth_token,
+            style_description=style_description,
+        )
+        user_id = validated.user_id
+        session_id = validated.session_id
+        source_image_id = validated.source_image_id
+        reference_image_id = validated.reference_image_id
+        auth_token = validated.auth_token
+        style_description = validated.style_description
+
+        async with self._locked_session(user_id, session_id):
+            return await self._execute_request_locked(
+                user_id=user_id,
+                session_id=session_id,
+                source_image_id=source_image_id,
+                reference_image_id=reference_image_id,
+                auth_token=auth_token,
+                style_description=style_description,
+            )
+
+    async def _execute_request_locked(
+        self,
+        user_id: ObjectId,
+        session_id: str,
+        source_image_id: str,
+        reference_image_id: str,
+        auth_token: str,
+        style_description: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Resume an existing chat session and perform the selected transfer."""
+        try:
+            _, state = await self._load_session(session_id, user_id)
+        except LegacySessionMigrationRequired as exc:
+            self.logger.log_step(
+                "StyleTransferGraph_REQUEST_LEGACY_MIGRATION_REQUIRED",
+                {"user_id": str(user_id), "session_id": session_id},
+                level="WARNING",
+            )
+            return self._failure_response(
+                "FAILED",
+                "This legacy session requires an explicit migration before it can be used.",
+                str(exc),
+            )
+
         if state is None:
             state = self._new_state(
                 user_id=user_id,
@@ -382,13 +601,13 @@ class StyleTransferGraph:
             if not mongo_ref_id:
                 raise ValueError("Failed to resolve reference image id")
 
-            image_tool = ImageRoutesTool(token=auth_token)
-            translated_id = image_tool.translate_images(
+            translation_result = await self.image_service.translate_images_result(
+                user_id=user_id,
                 source_image_id=state["source_image_id"],
                 reference_image_id=mongo_ref_id,
             )
-            state["translated_image_id"] = translated_id
-            state["translation_task_id"] = translated_id
+            state["translated_image_id"] = translation_result.translated_image_id
+            state["translation_task_id"] = translation_result.task_id
             state["status"] = "COMPLETED"
             message = "Style transfer completed successfully."
             await self._save_session(session_id, user_id, state, "COMPLETED")
@@ -429,3 +648,7 @@ class StyleTransferGraph:
                 final_state.get("errors", [])
             )
         return ""
+
+    @staticmethod
+    def _sse(payload: dict) -> str:
+        return f"data: {json.dumps(payload, ensure_ascii=False, default=str)}\n\n"

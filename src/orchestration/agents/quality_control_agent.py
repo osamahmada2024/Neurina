@@ -1,3 +1,5 @@
+import asyncio
+
 from .base_agent import BaseAgent
 from ...schemes.agent_state import AgentState
 from ...helpers.AgentTools.face_score import batch_score_images
@@ -33,16 +35,27 @@ class QualityControlAgent(BaseAgent):
             image_urls = list(candidate_images.values())
 
             # Score all images
-            scored_images = batch_score_images(image_urls)
+            scored_images = await asyncio.to_thread(batch_score_images, image_urls)
 
-            # Filter by quality criteria
+            # Filter by quality criteria. The translation model expects a single clear
+            # face reference; a sharp image with no face or multiple faces can still
+            # produce unstable style codes, so we require both the aggregate gate and
+            # the explicit one-face check from the scorer.
             passing_images = []
             best_score = 0.0
 
             for url, score_dict in scored_images:
-                if score_dict.get("quality_score", 0.0) >= self.quality_threshold:
+                quality_score = float(score_dict.get("quality_score", 0.0))
+                face_count = int(score_dict.get("face_count", 0))
+                passes_gate = bool(score_dict.get("passes_gate", False))
+                best_score = max(best_score, quality_score)
+
+                if (
+                    passes_gate
+                    and face_count == 1
+                    and quality_score >= self.quality_threshold
+                ):
                     passing_images.append((url, score_dict))
-                    best_score = max(best_score, score_dict.get("quality_score", 0.0))
 
             # Log results
             self.logger.log_tool_call(
@@ -64,20 +77,13 @@ class QualityControlAgent(BaseAgent):
                 state["candidate_images"] = filtered_candidates
                 state["quality_score"] = str(round(best_score, 3))
             else:
-                # No images passed: keep the best one anyway
-                if scored_images:
-                    best_url, best_dict = scored_images[0]
-                    best_uid = next((uid for uid, url in candidate_images.items() if url == best_url), "unknown")
-                    state["candidate_images"] = {best_uid: best_url}
-                    state["quality_score"] = str(round(best_dict.get("quality_score", 0.0), 3))
-                    self.logger.log_step(
-                        "QualityControlAgent",
-                        {"status": "no_passing_images_using_best"},
-                        level="WARNING",
-                    )
-                else:
-                    state["candidate_images"] = {}
-                    state["quality_score"] = "0.0"
+                state["candidate_images"] = {}
+                state["quality_score"] = str(round(best_score, 3))
+                self.logger.log_step(
+                    "QualityControlAgent",
+                    {"status": "no_images_passed_face_quality_gate"},
+                    level="WARNING",
+                )
 
             return state
 

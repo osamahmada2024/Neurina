@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from .base_agent import BaseAgent
 from ...config import settings
+from ...helpers.AgentTools.ollama_client import OllamaClient
 from ...schemes.agent_state import AgentState
 
 
@@ -87,10 +88,11 @@ def _apply_candidate_pick(state: AgentState, candidate_id: str, url: str) -> Age
 class SelectionRouterAgent(BaseAgent):
     """Runs before web search: UUID match, ordinal/semantic selection, or defer to search."""
 
-    def __init__(self) -> None:
+    def __init__(self, ollama_client: OllamaClient | None = None) -> None:
         super().__init__(
             model_name=settings.QUERY_MODEL,
             agent_name="SelectionRouterAgent",
+            ollama_client=ollama_client,
         )
 
     async def think_and_act(self, state: AgentState) -> AgentState:

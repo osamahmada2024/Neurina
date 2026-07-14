@@ -1,14 +1,12 @@
 import os
+import asyncio
 from pathlib import Path
-
-from langchain_chroma import Chroma
-from langchain_community.document_loaders import TextLoader
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from typing import Any, Callable, Optional
 
 from .base_agent import BaseAgent
 from ...schemes.agent_state import AgentState
 from ...config import settings
+from ...helpers.AgentTools.ollama_client import OllamaClient
 
 
 def _configure_hf_hub_token() -> str | None:
@@ -21,30 +19,55 @@ def _configure_hf_hub_token() -> str | None:
 
 
 class RAGAgent(BaseAgent):
-    def __init__(self):
+    def __init__(
+        self,
+        embeddings_factory: Optional[Callable[[], Any]] = None,
+        vector_store_factory: Optional[Callable[[Any, str], Any]] = None,
+        ollama_client: OllamaClient | None = None,
+    ):
         super().__init__(
             model_name=settings.QUERY_MODEL,
             agent_name="RAGAgent",
+            ollama_client=ollama_client,
         )
         base_path = Path(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
         self.docs_path = base_path / "docs"
         self.chroma_path = self.docs_path / ".chroma"
         self.docs_path.mkdir(exist_ok=True)
 
+        self.embeddings = (
+            embeddings_factory() if embeddings_factory else self._build_embeddings()
+        )
+        self.vector_store = (
+            vector_store_factory(self.embeddings, str(self.chroma_path))
+            if vector_store_factory
+            else self._build_vector_store(self.embeddings, str(self.chroma_path))
+        )
+
+    @staticmethod
+    def _build_embeddings() -> Any:
+        from langchain_huggingface import HuggingFaceEmbeddings
+
         hf_token = _configure_hf_hub_token()
         model_kwargs: dict = {}
         if hf_token:
             model_kwargs["token"] = hf_token
-
-        self.embeddings = HuggingFaceEmbeddings(
+        return HuggingFaceEmbeddings(
             model_name=settings.RAG_EMBEDDING_MODEL,
             model_kwargs=model_kwargs,
         )
 
-        self.vector_store = Chroma(
+    @staticmethod
+    def _build_vector_store(
+        embeddings: Any,
+        persist_directory: str,
+    ) -> Any:
+        from langchain_chroma import Chroma
+
+        return Chroma(
             collection_name="neurina_docs",
-            embedding_function=self.embeddings,
-            persist_directory=str(self.chroma_path),
+            embedding_function=embeddings,
+            persist_directory=persist_directory,
             collection_metadata={"hnsw:space": "cosine"},
         )
 
@@ -69,10 +92,14 @@ class RAGAgent(BaseAgent):
                     continue
 
                 if file_path.suffix in [".txt", ".md", ".csv", ".json"]:
+                    from langchain_community.document_loaders import TextLoader
+
                     loader = TextLoader(str(file_path), encoding="utf-8")
                     documents.extend(loader.load())
 
             if documents:
+                from langchain_text_splitters import RecursiveCharacterTextSplitter
+
                 text_splitter = RecursiveCharacterTextSplitter(
                     chunk_size=1000,
                     chunk_overlap=200,
@@ -132,3 +159,21 @@ Answer:"""
             self.logger.log_step("RAG_FAILED", {"error": str(e)}, level="ERROR")
 
         return state
+
+
+class LazyRAGAgentProvider:
+    """Thread-safe async lazy provider for the heavy RAG stack."""
+
+    def __init__(self, agent_factory: Optional[Callable[[], RAGAgent]] = None):
+        self._agent_factory = agent_factory or RAGAgent
+        self._agent: Optional[RAGAgent] = None
+        self._lock = asyncio.Lock()
+
+    async def get(self) -> RAGAgent:
+        if self._agent is not None:
+            return self._agent
+
+        async with self._lock:
+            if self._agent is None:
+                self._agent = await asyncio.to_thread(self._agent_factory)
+            return self._agent

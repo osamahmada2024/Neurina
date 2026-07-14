@@ -6,6 +6,7 @@ from pathlib import Path
 
 
 def _load_real_gfpganer():
+    
     current_init = Path(__file__).resolve()
     vendor_root = current_init.parents[1]
     wrapper_module = sys.modules.get("gfpgan")

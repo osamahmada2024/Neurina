@@ -1,14 +1,16 @@
 from .base_agent import BaseAgent
 from ...schemes.agent_state import AgentState
 from ...config import settings
+from ...helpers.AgentTools.ollama_client import OllamaClient
 
 
 class QueryAgent(BaseAgent):
 
-    def __init__(self):
+    def __init__(self, ollama_client: OllamaClient | None = None):
         super().__init__(
             model_name=settings.QUERY_MODEL,
             agent_name="QueryAgent",
+            ollama_client=ollama_client,
         )
 
     async def think_and_act(self, state: AgentState) -> AgentState:

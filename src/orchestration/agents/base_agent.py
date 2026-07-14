@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 from ...schemes.agent_state import AgentState
 from ...helpers.AgentTools.logger import AgentLogger
-from ...helpers.AgentTools.ollama_client import ask_ollama
+from ...helpers.AgentTools.ollama_client import OllamaClient, ask_ollama
 
 
 class BaseAgent(ABC):
@@ -16,10 +16,12 @@ class BaseAgent(ABC):
         self,
         model_name: Optional[str] = None,
         agent_name: Optional[str] = None,
+        ollama_client: Optional[OllamaClient] = None,
     ):
 
         self.model_name = model_name or self.__class__.__name__
         self.agent_name = agent_name or self.__class__.__name__
+        self.ollama_client = ollama_client
         self.logger = AgentLogger()
 
     async def __call__(self, state: AgentState) -> AgentState:
@@ -34,6 +36,8 @@ class BaseAgent(ABC):
                 list(state.keys()),
             )
 
+            before_state = dict(state)
+
             # Execute core agent logic
             updated_state = await self.think_and_act(state)
 
@@ -41,7 +45,7 @@ class BaseAgent(ABC):
             duration = time.time() - start_time
             updated_keys = [
                 k for k in updated_state.keys()
-                if updated_state.get(k) != state.get(k)
+                if updated_state.get(k) != before_state.get(k)
             ]
             self.logger.log_agent_end(
                 self.agent_name,
@@ -80,7 +84,7 @@ class BaseAgent(ABC):
     def query_llm(self, prompt: str) -> str:
 
         try:
-            response = ask_ollama(self.model_name, prompt)
+            response = ask_ollama(self.model_name, prompt, client=self.ollama_client)
             return response
         except Exception as e:
             self.logger.log_tool_call(

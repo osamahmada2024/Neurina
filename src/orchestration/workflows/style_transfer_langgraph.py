@@ -4,16 +4,18 @@ from __future__ import annotations
 
 from typing import Literal
 
+from bson import ObjectId
 from langgraph.config import get_stream_writer
 from langgraph.graph import END, StateGraph
 
-from ...helpers.AgentTools.image_routes_tool import ImageRoutesTool
+from ...services.agent_image_service import AgentImageService, agent_image_service
+from ...helpers.AgentTools.ollama_client import OllamaClient
 from ...schemes.agent_state import AgentState
 from ..agents.api_execution_agent import APIExecutionAgent
 from ..agents.intent_agent import IntentAgent
 from ..agents.quality_control_agent import QualityControlAgent
 from ..agents.query_agent import QueryAgent
-from ..agents.rag_agent import RAGAgent
+from ..agents.rag_agent import LazyRAGAgentProvider, RAGAgent
 from ..agents.reference_selector_agent import ReferenceSelectorAgent
 from ..agents.selection_router import SelectionRouterAgent, _apply_candidate_pick
 from ...config import settings
@@ -41,6 +43,8 @@ def _route_after_intent(state: AgentState) -> Literal[
     "process_selection",
     "done",
 ]:
+    if state.get("status") == "FAILED":
+        return "done"
     route = state.get("route")
     if route == "process_selection":
         return "process_selection"
@@ -56,14 +60,27 @@ def _route_after_intent(state: AgentState) -> Literal[
     return "done"
 
 
-def build_style_transfer_graph():
-    selection_router = SelectionRouterAgent()
-    intent_agent = IntentAgent()
-    rag_agent = RAGAgent()
-    query_agent = QueryAgent()
+def build_style_transfer_graph(
+    *,
+    rag_provider: LazyRAGAgentProvider | None = None,
+    image_service: AgentImageService | None = None,
+    ollama_client: OllamaClient | None = None,
+):
+    rag_provider = rag_provider or LazyRAGAgentProvider(
+        agent_factory=(
+            (lambda: RAGAgent(ollama_client=ollama_client))
+            if ollama_client is not None
+            else None
+        )
+    )
+    image_service = image_service or agent_image_service
+
+    selection_router = SelectionRouterAgent(ollama_client=ollama_client)
+    intent_agent = IntentAgent(ollama_client=ollama_client)
+    query_agent = QueryAgent(ollama_client=ollama_client)
     api_agent = APIExecutionAgent()
     quality_agent = QualityControlAgent()
-    reference_agent = ReferenceSelectorAgent()
+    reference_agent = ReferenceSelectorAgent(image_service=image_service)
 
     async def selection_router_node(state: AgentState) -> AgentState:
         _emit({"step": "routing", "action": "evaluate_selection"})
@@ -106,6 +123,7 @@ def build_style_transfer_graph():
 
     async def rag_node(state: AgentState) -> AgentState:
         _emit({"step": "tool_call", "tool": "rag_answer"})
+        rag_agent = await rag_provider.get()
         return await rag_agent(state)
 
     async def web_search_node(state: AgentState) -> AgentState:
@@ -158,9 +176,8 @@ def build_style_transfer_graph():
         state = await reference_agent(state)
         mongo_ref = state.get("reference_image_id")
         source_id = (state.get("source_image_id") or "").strip()
-        auth = state.get("auth_token") or ""
 
-        if source_id and mongo_ref and auth:
+        if source_id and mongo_ref and ObjectId.is_valid(str(state.get("user_id", ""))):
             _emit(
                 {
                     "step": "translating_image",
@@ -168,15 +185,21 @@ def build_style_transfer_graph():
                     "reference_image_id": mongo_ref,
                 }
             )
-            tool = ImageRoutesTool(token=auth)
-            translated_id = tool.translate_images(
+            translation_result = await image_service.translate_images_result(
+                user_id=ObjectId(str(state["user_id"])),
                 source_image_id=source_id,
                 reference_image_id=mongo_ref,
             )
-            state["translated_image_id"] = translated_id
-            state["translation_task_id"] = translated_id
+            state["translated_image_id"] = translation_result.translated_image_id
+            state["translation_task_id"] = translation_result.task_id
             state["status"] = "COMPLETED"
-            _emit({"step": "translation_complete", "translated_image_id": translated_id})
+            _emit(
+                {
+                    "step": "translation_complete",
+                    "task_id": translation_result.task_id,
+                    "translated_image_id": translation_result.translated_image_id,
+                }
+            )
         else:
             state["status"] = "COMPLETED"
             _emit({"step": "reference_ready", "reference_image_id": mongo_ref})

@@ -12,6 +12,7 @@ from ...schemes.image_schema import (
     TranslationCreatedResponse,
     SuccessResponse,
 )
+from ...services.agent_image_service import agent_image_service
 from .dependencies import get_current_user
 
 router = APIRouter()
@@ -25,7 +26,7 @@ async def upload_image(
     current_user: ObjectId = Depends(get_current_user),
 ) -> UploadCompleteResponse:
     try:
-        result = await image_controller.upload_and_process_image(
+        result = await agent_image_service.upload_image(
             file=file,
             user_id=current_user,
             image_type=image_type,
@@ -72,7 +73,7 @@ async def create_translation_task(
     current_user: ObjectId = Depends(get_current_user),
 ) -> TranslationCreatedResponse:
     try:
-        result = await image_controller.create_translation_task(
+        result = await agent_image_service.create_translation_task(
             user_id=current_user,
             source_image_id=source_image_id,
             reference_image_id=reference_image_id,

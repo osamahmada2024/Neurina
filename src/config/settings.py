@@ -77,6 +77,7 @@ class Settings(BaseSettings):
     VERIFY_TIMEOUT: int
     Backend_API_URL: str
     MAX_RETRIES: int = 3
+    QUALITY_GATE_THRESHOLD: float = 0.7
 
     # Hugging Face Hub (RAG embeddings download / rate limits)
     HF_TOKEN: str = ""

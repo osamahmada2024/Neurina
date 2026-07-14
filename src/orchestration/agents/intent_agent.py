@@ -1,8 +1,8 @@
 from pydantic import BaseModel, Field
-from typing import Dict, Any
 from .base_agent import BaseAgent
 from ...schemes.agent_state import AgentState
 from ...config import settings
+from ...helpers.AgentTools.ollama_client import OllamaClient, OllamaClientError
 
 class IntentAnalysis(BaseModel):
     intent: str = Field(description="One of: 'new_request', 'refine_prompt', 'select_candidate', 'upload_source', 'general_question'")
@@ -10,10 +10,11 @@ class IntentAnalysis(BaseModel):
     selected_index: int = Field(description="The index (0-based) of the selected candidate image if applicable, or -1")
 
 class IntentAgent(BaseAgent):
-    def __init__(self):
+    def __init__(self, ollama_client: OllamaClient | None = None):
         super().__init__(
             model_name=settings.QUERY_MODEL,
             agent_name="IntentAgent",
+            ollama_client=ollama_client,
         )
 
     async def think_and_act(self, state: AgentState) -> AgentState:
@@ -38,8 +39,32 @@ If they are selecting a candidate, extract the 0-based index.
 Respond ONLY in JSON matching this schema:
 {{"intent": "...", "extracted_prompt": "...", "selected_index": 0}}
 """
-        response = self.query_llm(prompt)
-        parsed = self.parse_json_from_llm(response, IntentAnalysis)
+        try:
+            response = self.query_llm(prompt)
+            parsed = self.parse_json_from_llm(response, IntentAnalysis)
+        except OllamaClientError as exc:
+            state["status"] = "FAILED"
+            state["route"] = "done"
+            state.setdefault("errors", []).append(f"Intent analysis failed: {exc}")
+            self.logger.log_step(
+                "IntentAnalysis",
+                {"status": "failed", "error": str(exc)},
+                level="ERROR",
+            )
+            return state
+
+        if not parsed or not parsed.get("intent"):
+            state["status"] = "FAILED"
+            state["route"] = "done"
+            state.setdefault("errors", []).append(
+                "Intent analysis failed: model returned invalid JSON"
+            )
+            self.logger.log_step(
+                "IntentAnalysis",
+                {"status": "invalid_json"},
+                level="ERROR",
+            )
+            return state
         
         state["intent"] = parsed.get("intent", "new_request")
         extracted_prompt = parsed.get("extracted_prompt", "")

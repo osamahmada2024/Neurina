@@ -1,18 +1,16 @@
-import requests
 import cv2
 import numpy as np
 from typing import Dict, Any, Optional
 
 from ...config import settings
+from ...utils.safe_image_download import download_public_image_sync
 
 
 def download_image_from_url(image_url: str, timeout: int = 30) -> Optional[np.ndarray]:
     """Download image from URL and return as BGR numpy array."""
     try:
-        response = requests.get(image_url, timeout=timeout)
-        response.raise_for_status()
-
-        image_array = np.frombuffer(response.content, np.uint8)
+        image_bytes = download_public_image_sync(image_url)
+        image_array = np.frombuffer(image_bytes, np.uint8)
         image_bgr = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
 
         if image_bgr is None:
@@ -181,4 +179,3 @@ def batch_score_images(image_urls: list) -> list:
     )
 
     return results
-

@@ -1,43 +1,42 @@
-FROM python:3.10-slim
+FROM pytorch/pytorch:2.13.0-cuda13.0-cudnn9-runtime
 
 WORKDIR /app
 
-# Install system dependencies for OpenCV, Pillow, and torch
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    build-essential \
     libgl1 \
     libglib2.0-0 \
     libsm6 \
     libxext6 \
     libxrender1 \
     libgomp1 \
-    git \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first for better caching
-COPY requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir -r /app/requirements.txt
+# Upgrade pip
+RUN python -m pip install --upgrade pip setuptools wheel --break-system-packages
 
-# Install additional dependencies for face restoration
-# Pin versions compatible with numpy 1.26.4 (numpy 2.x causes 'expected np.ndarray' errors)
-RUN pip install --no-cache-dir \
-    'numpy<2' \
-    gfpgan==1.3.8 \
-    realesrgan==0.3.0 \
-    basicsr==1.4.2
+# Copy requirements first to leverage Docker cache
 
-# Copy the vendor directory (CodeFormer needs this)
+
+COPY requirements.txt .
+RUN python -m pip install \
+    --break-system-packages \
+    -v \
+    -r requirements.txt
+
+
+
+# Copy project
 COPY .vendor /app/.vendor
-
-# Copy the source code
 COPY src /app/src
 
 # Create checkpoints directory
 RUN mkdir -p /app/checkpoints
 
-# Set environment variables
 ENV PYTHONPATH=/app
 ENV MODEL_LOADING_USE_HUGGINGFACE=true
 
 EXPOSE 8000
 
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "-m", "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
